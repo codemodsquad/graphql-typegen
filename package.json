@@ -68,7 +68,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/jedwards1211/graphql-to-flow-codemod.git"
+    "url": "https://github.com/codemodsquad/graphql-to-flow-codemod.git"
   },
   "keywords": [
     "graphql",
@@ -79,9 +79,9 @@
   "author": "Andy Edwards",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jedwards1211/graphql-to-flow-codemod/issues"
+    "url": "https://github.com/codemodsquad/graphql-to-flow-codemod/issues"
   },
-  "homepage": "https://github.com/jedwards1211/graphql-to-flow-codemod#readme",
+  "homepage": "https://github.com/codemodsquad/graphql-to-flow-codemod#readme",
   "devDependencies": {
     "@babel/cli": "^7.1.5",
     "@babel/core": "^7.1.6",
