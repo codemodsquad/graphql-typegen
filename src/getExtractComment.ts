@@ -9,14 +9,12 @@ export default function getExtractComment(
 ): string | true | null {
   for (const { value } of getGraphQLComments(node)) {
     if (!value) continue
-    const parts = value.trim().split(/\s+/g)
+    const parts = value.trim().split(/\s+/g, 4)
     if (parts[0] === pragma && parts[1] === 'extract') {
       if (parts[2]) {
         if (parts[2] == 'as') {
-          if (!isValidIdentifier(parts[3])) {
-            throw new Error(`invalid extract as identifier: ${parts[3]}`)
-          }
-          return parts[3]
+          if (isValidIdentifier(parts[3])) return parts[3]
+          throw new Error(`invalid extract as identifier: ${parts[3]}`)
         } else {
           throw new Error(`invalid token after extract: ${parts[2]}`)
         }
