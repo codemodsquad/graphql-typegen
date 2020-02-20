@@ -3,6 +3,7 @@
 import gql from 'graphql-tag'
 import graphql from 'graphql'
 import superagent from 'superagent'
+import getConfigDirectives, { ConfigDirectives } from './getConfigDirectives'
 
 const typesQuery = gql`
   fragment typeInfo on __Type {
@@ -25,6 +26,7 @@ const typesQuery = gql`
       types {
         kind
         name
+        description
         enumValues {
           name
         }
@@ -102,6 +104,7 @@ export type EnumValue = {
 export type IntrospectionType = {
   kind: TypeKind
   name: string
+  description: string
   ofType?: IntrospectionType | null
   fields?: IntrospectionField[] | null
   inputFields?: IntrospectionInputField[] | null
@@ -111,11 +114,13 @@ export type IntrospectionType = {
 export type AnalyzedType = {
   kind: TypeKind
   name: string
+  description: string
   ofType?: AnalyzedType | null
   fields?: Record<string, AnalyzedField> | null
   inputFields?: Record<string, AnalyzedInputField> | null
   enumValues?: EnumValue[] | null
   parents?: Array<AnalyzedField | AnalyzedInputField>
+  config?: ConfigDirectives
 }
 
 function convertIntrospectionArgs(
@@ -172,6 +177,7 @@ function convertIntrospectionInputFields(
 
 function convertIntrospectionType({
   name,
+  description,
   kind,
   ofType,
   fields,
@@ -180,6 +186,7 @@ function convertIntrospectionType({
 }: IntrospectionType): AnalyzedType {
   return {
     name,
+    description,
     kind,
     ofType: ofType ? convertIntrospectionType(ofType) : null,
     fields: fields ? convertIntrospectionFields(fields) : null,
@@ -187,6 +194,7 @@ function convertIntrospectionType({
       ? convertIntrospectionInputFields(inputFields)
       : null,
     enumValues,
+    config: getConfigDirectives(description.split(/\n/gm)),
   }
 }
 

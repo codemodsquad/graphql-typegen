@@ -50,7 +50,7 @@ export type DefaultedConfig = {
 
 export function applyConfigDefaults(config: Config): DefaultedConfig {
   const tagName = config.tagName || 'gql'
-  const addTypename = config.addTypename ?? false
+  const addTypename = config.addTypename ?? true
   const useReadOnlyTypes = config.useReadOnlyTypes ?? false
   const objectType = config.objectType || 'ambiguous'
   const externalTypes = config.externalTypes || {}
