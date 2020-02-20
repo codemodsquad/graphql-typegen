@@ -4,14 +4,19 @@ import graphql from 'graphql'
 import map from 'lodash/map'
 import upperFirst from 'lodash/upperFirst'
 import { AnalyzedType, AnalyzedInputField, EnumValue } from './analyzeSchema'
-import {
+import jscodeshift, {
   JSCodeshift,
   TypeAlias,
   ObjectTypeAnnotation,
   ObjectTypeProperty,
   Statement,
+  GenericTypeAnnotation,
+  ImportDeclaration,
 } from 'jscodeshift'
 import { FlowTypeKind } from 'ast-types/gen/kinds'
+import { Config, applyConfigDefaults } from './config'
+
+import getExtractComment from './getExtractComment'
 
 type GeneratedQueryType = {
   variables?: TypeAlias
@@ -36,29 +41,57 @@ export default function graphqlToFlow({
   query,
   file,
   types,
-  MutationFunction = 'MutationFunction',
-  extractTypes = new Map(),
-  external: _external = new Map(),
+  config,
 }: {
   jscodeshift: JSCodeshift
   query: string | graphql.DocumentNode
   file: string
   types: Record<string, AnalyzedType>
-  ApolloQueryResult: string
-  MutationFunction: string
-  extractTypes?: Map<string, string>
-  external?: Map<string, string>
-}): { statements: Statement[]; generatedTypes: GeneratedTypes } {
+  config: Config
+}): {
+  statements: Statement[]
+  generatedTypes: GeneratedTypes
+  imports: ImportDeclaration[]
+} {
   const { statement } = j.template
 
-  const external: Map<string, FlowTypeKind> = new Map()
-  for (const [key, value] of _external.entries()) {
-    const Analyzed = j(`// @flow
-type __T = ${value};`)
-      .find(j.TypeAlias)
-      .nodes()[0].right
-    external.set(key, Analyzed)
+  const {
+    addTypename,
+    useReadOnlyTypes,
+    objectType,
+    externalTypes,
+  } = applyConfigDefaults(config)
+
+  function objectTypeAnnotation(
+    properties: Parameters<typeof j.objectTypeAnnotation>[0]
+  ): ObjectTypeAnnotation | GenericTypeAnnotation {
+    const annotation = j.objectTypeAnnotation(properties)
+    annotation.exact = objectType === 'exact'
+    annotation.inexact = objectType === 'inexact'
+    if (useReadOnlyTypes) {
+      return j.genericTypeAnnotation(
+        j.identifier('$ReadOnly'),
+        j.typeParameterInstantiation([annotation])
+      )
+    }
+    return annotation
   }
+
+  function arrayTypeAnnotation(params: FlowTypeKind[]): GenericTypeAnnotation {
+    return j.genericTypeAnnotation(
+      j.identifier(useReadOnlyTypes ? '$ReadOnlyArray' : 'Array'),
+      j.typeParameterInstantiation(params)
+    )
+  }
+
+  //   const external: Map<string, FlowTypeKind> = new Map()
+  //   for (const [key, value] of _external.entries()) {
+  //     const Analyzed = j(`// @flow
+  // type __T = ${value};`)
+  //       .find(j.TypeAlias)
+  //       .nodes()[0].right
+  //     external.set(key, Analyzed)
+  //   }
 
   const strippedFileName = file
     ? require('path')
@@ -77,6 +110,7 @@ type __T = ${value};`)
     subscription: {},
     fragment: {},
   }
+  const imports: ImportDeclaration[] = []
 
   function convertDefinition(def: graphql.DefinitionNode): void {
     switch (def.kind) {
@@ -95,10 +129,11 @@ type __T = ${value};`)
       def.selectionSet,
       types[def.typeCondition.name.value]
     )
-    const alias = addTypeAlias(
-      extractTypes.get(def.name.value) || `${upperFirst(def.name.value)}Data`,
-      type
-    )
+    let extractedName = getExtractComment(def)
+    if (typeof extractedName !== 'string') {
+      extractedName = `${upperFirst(def.name.value)}`
+    }
+    const alias = addTypeAlias(extractedName, type)
     generatedTypes.fragment[def.name.value] = alias
     fragments.set(def.name.value, alias)
   }
@@ -169,9 +204,9 @@ type __T = ${value};`)
 
   function convertVariableDefinitions(
     variableDefinitions: readonly graphql.VariableDefinitionNode[]
-  ): ObjectTypeAnnotation {
+  ): FlowTypeKind {
     const props = variableDefinitions.map(def => convertVariableDefinition(def))
-    return j.objectTypeAnnotation(props)
+    return objectTypeAnnotation(props)
   }
 
   function convertVariableDefinition(
@@ -200,10 +235,7 @@ type __T = ${value};`)
       case 'NamedType':
         return convertVariableTypeName(type.name.value)
       case 'ListType':
-        return j.genericTypeAnnotation(
-          j.identifier('Array'),
-          j.typeParameterInstantiation([convertVariableType(type.type)])
-        )
+        return arrayTypeAnnotation([convertVariableType(type.type)])
     }
   }
 
@@ -239,7 +271,7 @@ type __T = ${value};`)
     const intersects = []
     if (propSelections.length) {
       intersects.push(
-        j.objectTypeAnnotation(propSelections.map(s => convertField(s, type)))
+        objectTypeAnnotation(propSelections.map(s => convertField(s, type)))
       )
     }
     fragmentSelections.forEach(spread => {
@@ -293,7 +325,8 @@ type __T = ${value};`)
     const { name, alias, selectionSet, directives } = field
     let typeValue
     const fieldName = name.value
-    if (fieldName === '__typename') typeValue = j.stringTypeAnnotation()
+    if (fieldName === '__typename')
+      typeValue = j.stringLiteralTypeAnnotation(type.name, type.name)
     else typeValue = convertType(getFieldType(type, fieldName), selectionSet)
     if (directives) {
       for (const directive of directives) {
@@ -365,7 +398,7 @@ type __T = ${value};`)
       case 'String':
         return j.stringTypeAnnotation()
     }
-    const externalType = external.get(name)
+    const externalType = external[name]
     if (externalType) return externalType
     function convertCustomType(
       type: AnalyzedType,
@@ -388,14 +421,11 @@ type __T = ${value};`)
   ): FlowTypeKind {
     const { ofType } = type
     if (!ofType) throw new Error('LIST type missing ofType')
-    return j.genericTypeAnnotation(
-      j.identifier('Array'),
-      j.typeParameterInstantiation([convertType(ofType, selectionSet)])
-    )
+    return arrayTypeAnnotation([convertType(ofType, selectionSet)])
   }
 
   function convertInputType(type: AnalyzedType): FlowTypeKind {
-    return j.objectTypeAnnotation(
+    return objectTypeAnnotation(
       map(type.inputFields, field => convertInputField(field))
     )
   }
@@ -416,5 +446,5 @@ type __T = ${value};`)
     if (def.kind !== 'FragmentDefinition') convertDefinition(def)
   }
 
-  return { statements, generatedTypes }
+  return { statements, generatedTypes, imports }
 }
