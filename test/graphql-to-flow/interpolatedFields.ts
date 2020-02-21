@@ -3,13 +3,18 @@ import * as path from 'path'
 export const input = `
 import gql from 'graphql-tag'
 
+const appearsIn = 'appearsIn'
+
+const characterFields = \`
+  name
+  \${appearsIn}
+\`
+
 const query = gql\`
-# @graphql-to-flow readOnly
 query Test($id: ID!) {
   character(id: $id) {
     id
-    name
-    appearsIn
+    \${characterFields}
   }
 }
 \`
@@ -22,15 +27,16 @@ export const options = {
 
 export const expected = `
 ${input}
-// @graphql-to-flow auto-generated
-type TestQueryVariables = $ReadOnly<{ id: string }>
 
 // @graphql-to-flow auto-generated
-type TestQueryData = $ReadOnly<{
-  character: ?$ReadOnly<{
+type TestQueryVariables = { id: string }
+
+// @graphql-to-flow auto-generated
+type TestQueryData = {
+  character: ?{
     id: string,
     name: string,
-    appearsIn: $ReadOnlyArray<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
-  }>,
-}>
+    appearsIn: Array<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
+  },
+}
 `

@@ -22,6 +22,15 @@ const typesQuery = gql`
         kind
         ofType {
           name
+          # TODO: fetch as deep as necessary
+          #   kind
+          #   ofType {
+          #     name
+          #     kind
+          #     ofType {
+          #       name
+          #     }
+          #   }
         }
       }
     }
@@ -339,7 +348,6 @@ export function analyzeSchemaSync(options: {
       const latest = fs.statSync(file).mtime
       const cached = schemaCache.get(file)
       if (latest > timestamp) {
-        schemaFileTimestamps.set(file, latest)
         schemaCache.delete(file)
       } else if (cached) {
         return cached
@@ -353,7 +361,11 @@ export function analyzeSchemaSync(options: {
       maxBuffer: 256 * 1024 * 1024,
     })
   )
-  if (file) schemaCache.set(file, schema)
+  if (file) {
+    const latest = fs.statSync(file).mtime
+    schemaFileTimestamps.set(file, latest)
+    schemaCache.set(file, schema)
+  }
   return schema
 }
 

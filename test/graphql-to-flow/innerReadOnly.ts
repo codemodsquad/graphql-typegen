@@ -27,10 +27,10 @@ type TestQueryVariables = { id: string }
 
 // @graphql-to-flow auto-generated
 type TestQueryData = {
-  character: ?{
-    +id: string,
-    +name: string,
-    +appearsIn: $ReadOnlyArray<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
-  },
+  character: ?$ReadOnly<{
+    id: string,
+    name: string,
+    appearsIn: $ReadOnlyArray<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
+  }>,
 }
 `

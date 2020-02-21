@@ -13,16 +13,15 @@ import {
 } from './analyzeSchema'
 import j, {
   TypeAlias,
-  ObjectTypeAnnotation,
   ObjectTypeProperty,
   GenericTypeAnnotation,
   ImportDeclaration,
-  ObjectTypeSpreadProperty,
 } from 'jscodeshift'
 import { FlowTypeKind } from 'ast-types/gen/kinds'
 import { Config, applyConfigDefaults } from './config'
 import { ConfigDirectives } from './getConfigDirectives'
 import getCommentDirectives from './getCommentDirectives'
+import readOnlyType from './readOnlyType'
 
 type GeneratedQueryType = {
   variables?: TypeAlias
@@ -148,29 +147,25 @@ export default function graphqlToFlow({
   function objectTypeAnnotation(
     properties: Parameters<typeof j.objectTypeAnnotation>[0],
     { objectType, useReadOnlyTypes }: ConfigDirectives
-  ): ObjectTypeAnnotation | GenericTypeAnnotation {
-    if (useReadOnlyTypes) {
-      properties.forEach(
-        (prop: ObjectTypeProperty | ObjectTypeSpreadProperty) => {
-          if (prop.type === 'ObjectTypeProperty') {
-            prop.variance = j.variance('plus')
-          }
-        }
-      )
-    }
+  ): FlowTypeKind {
     const annotation = j.objectTypeAnnotation(properties)
     annotation.exact = objectType === 'exact'
     annotation.inexact = objectType === 'inexact'
+    if (useReadOnlyTypes) {
+      return readOnlyType(annotation)
+    }
     return annotation
   }
 
   function arrayTypeAnnotation(
-    params: FlowTypeKind[],
+    elementType: FlowTypeKind,
     { useReadOnlyTypes }: ConfigDirectives
   ): GenericTypeAnnotation {
     return j.genericTypeAnnotation(
       j.identifier(useReadOnlyTypes ? '$ReadOnlyArray' : 'Array'),
-      j.typeParameterInstantiation(params)
+      j.typeParameterInstantiation([
+        useReadOnlyTypes ? readOnlyType(elementType) : elementType,
+      ])
     )
   }
 
@@ -183,7 +178,7 @@ export default function graphqlToFlow({
   const document: graphql.DocumentNode =
     typeof query === 'string' ? (query = graphql.parse(query)) : query
 
-  const fragments = new Map()
+  const fragments: Map<string, TypeAlias> = new Map()
   const statements: TypeAlias[] = []
   const generatedTypes: GeneratedTypes = {
     query: {},
@@ -328,7 +323,7 @@ export default function graphqlToFlow({
         return convertVariableTypeName(type.name.value, config)
       case 'ListType':
         return arrayTypeAnnotation(
-          [convertVariableType(type.type, config)],
+          convertVariableType(type.type, config),
           config
         )
     }
@@ -369,7 +364,7 @@ export default function graphqlToFlow({
     config: ConfigDirectives
   ): FlowTypeKind {
     config = getCombinedConfig(config, type.config)
-    const { addTypename } = config
+    const { addTypename, useReadOnlyTypes } = config
     const { selections } = selectionSet
     const propSelections: graphql.FieldNode[] = selections.filter(
       s => s.kind === 'Field'
@@ -393,11 +388,15 @@ export default function graphqlToFlow({
     }
     fragmentSelections.forEach(spread => {
       const alias = fragments.get(spread.name.value)
-      if (!alias)
+      if (!alias) {
         throw new Error(
           `missing fragment definition named ${spread.name.value}`
         )
-      intersects.push(j.genericTypeAnnotation(alias.id, null))
+      }
+      const fragmentType = j.genericTypeAnnotation(alias.id, null)
+      intersects.push(
+        useReadOnlyTypes ? readOnlyType(fragmentType) : fragmentType
+      )
     })
     return intersects.length === 1
       ? intersects[0]
@@ -550,7 +549,7 @@ export default function graphqlToFlow({
     const { ofType } = type
     if (!ofType) throw new Error('LIST type missing ofType')
     return arrayTypeAnnotation(
-      [convertType(ofType, config, selectionSet)],
+      convertType(ofType, config, selectionSet),
       config
     )
   }
