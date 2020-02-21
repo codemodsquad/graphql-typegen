@@ -5,7 +5,6 @@ import gql from 'graphql-tag'
 import * as graphql from 'graphql'
 import superagent from 'superagent'
 import getConfigDirectives, { ConfigDirectives } from './getConfigDirectives'
-import loadSchema from './loadSchema'
 import { execFileSync } from 'child_process'
 import * as fs from 'fs'
 import flatted from 'flatted'
@@ -307,7 +306,8 @@ export default async function analyzeSchema({
   let result: graphql.ExecutionResult<{
     __schema: { types: IntrospectionType[] }
   }>
-  if (schemaFile) schema = loadSchema(schemaFile)
+  if (schemaFile)
+    schema = graphql.buildSchema(fs.readFileSync(schemaFile, 'utf8'))
   if (schema) result = await graphql.execute(schema, typesQuery)
   else if (server) {
     result = (
