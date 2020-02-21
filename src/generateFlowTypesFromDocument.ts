@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 
-import graphql from 'graphql'
+import * as graphql from 'graphql'
 import map from 'lodash/map'
 import upperFirst from 'lodash/upperFirst'
 import memoize from 'lodash/memoize'

@@ -1,13 +1,14 @@
-#! /usr/bin/env babel-node
+#! /usr/bin/env babel-node --extensions .js,.ts
 /* eslint-disable @typescript-eslint/no-use-before-define */
 
 import gql from 'graphql-tag'
-import graphql from 'graphql'
+import * as graphql from 'graphql'
 import superagent from 'superagent'
 import getConfigDirectives, { ConfigDirectives } from './getConfigDirectives'
 import loadSchema from './loadSchema'
 import { execFileSync } from 'child_process'
 import * as fs from 'fs'
+import flatted from 'flatted'
 
 const typesQuery = gql`
   fragment typeInfo on __Type {
@@ -33,11 +34,14 @@ const typesQuery = gql`
         description
         enumValues {
           name
+          description
         }
         fields {
           name
+          description
           args {
             name
+            description
             type {
               ...typeInfo
             }
@@ -48,6 +52,7 @@ const typesQuery = gql`
         }
         inputFields {
           name
+          description
           type {
             ...typeInfo
           }
@@ -137,6 +142,12 @@ export type AnalyzedType = {
   config?: ConfigDirectives
 }
 
+function getDescriptionDirectives(
+  description: string | undefined
+): ConfigDirectives {
+  return getConfigDirectives(description ? description.split(/\n/gm) : [])
+}
+
 function convertIntrospectionArgs(
   args: IntrospectionArg[]
 ): Record<string, AnalyzedArg> {
@@ -146,7 +157,7 @@ function convertIntrospectionArgs(
       name,
       type: convertIntrospectionType(type),
       description,
-      config: getConfigDirectives(description.split(/\n/gm)),
+      config: getDescriptionDirectives(description),
     }
   }
   return AnalyzedArgs
@@ -163,7 +174,7 @@ function convertIntrospectionField({
     type: convertIntrospectionType(type),
     args: convertIntrospectionArgs(args),
     description,
-    config: getConfigDirectives(description.split(/\n/gm)),
+    config: getDescriptionDirectives(description),
   }
 }
 
@@ -186,7 +197,7 @@ function convertIntrospectionInputField({
     name,
     type: convertIntrospectionType(type),
     description,
-    config: getConfigDirectives(description.split(/\n/gm)),
+    config: getDescriptionDirectives(description),
   }
 }
 
@@ -219,7 +230,7 @@ function convertIntrospectionType({
       ? convertIntrospectionInputFields(inputFields)
       : null,
     enumValues,
-    config: getConfigDirectives(description.split(/\n/gm)),
+    config: getDescriptionDirectives(description),
   }
 }
 
@@ -313,6 +324,10 @@ export default async function analyzeSchema({
 const schemaFileTimestamps: Map<string, Date> = new Map()
 const schemaCache: Map<string, AnalyzedSchema> = new Map()
 
+/**
+ * Uses execFileSync to run analyzeSchema synchronously,
+ * since jscodeshift transforms unfortunately have to be sync right now
+ */
 export function analyzeSchemaSync(options: {
   schemaFile?: string
   server?: string
@@ -332,8 +347,11 @@ export function analyzeSchemaSync(options: {
     }
   }
 
-  const schema = JSON.parse(
-    execFileSync(__filename, [JSON.stringify(options)], { encoding: 'utf8' })
+  const schema = flatted.parse(
+    execFileSync(__filename, [JSON.stringify(options)], {
+      encoding: 'utf8',
+      maxBuffer: 256 * 1024 * 1024,
+    })
   )
   if (file) schemaCache.set(file, schema)
   return schema
@@ -342,8 +360,7 @@ export function analyzeSchemaSync(options: {
 if (!module.parent) {
   analyzeSchema(JSON.parse(process.argv[2])).then(
     (result: any) => {
-      process.stdout.write(JSON.stringify(result))
-      process.exit(0)
+      process.stdout.write(flatted.stringify(result), () => process.exit(0))
     },
     (error: Error) => {
       console.error(error.stack) // eslint-disable-line no-console

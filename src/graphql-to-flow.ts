@@ -17,7 +17,7 @@ import j, {
 import findImports from 'jscodeshift-find-imports'
 import addImports from 'jscodeshift-add-imports'
 import generateFlowTypesFromDocument from './generateFlowTypesFromDocument'
-import graphql from 'graphql'
+import * as graphql from 'graphql'
 import once from 'lodash/once'
 import { ExpressionKind, FlowTypeKind } from 'ast-types/gen/kinds'
 import chooseJSCodeshiftParser from 'jscodeshift-choose-parser'
@@ -25,6 +25,7 @@ import { Collection } from 'jscodeshift/src/Collection'
 import pkgConf from 'pkg-conf'
 import { applyConfigDefaults } from './config'
 import { analyzeSchemaSync } from './analyzeSchema'
+import * as path from 'path'
 
 const { statement } = j.template
 
@@ -51,14 +52,22 @@ function typeCast(
   return j.typeCastExpression(node, typeAnnotation)
 }
 
-module.exports = function addGraphQLFlowTypes(
+module.exports = function graphqlToFlow(
   { path: file, source: code }: FileInfo,
   { j }: API,
   options: Options
 ): string {
-  const config = applyConfigDefaults(
-    Object.assign(pkgConf.sync('graphql-to-flow'), options)
-  )
+  const packageConf = pkgConf.sync('graphql-to-flow', {
+    cwd: path.dirname(file),
+  })
+  if (packageConf?.schemaFile) {
+    const packageDir = path.dirname(pkgConf.filepath(packageConf) as any)
+    packageConf.schemaFile = path.resolve(
+      packageDir,
+      packageConf.schemaFile as any
+    )
+  }
+  const config = applyConfigDefaults(Object.assign(packageConf, options))
   const { schemaFile, server } = config
   const analyzedSchema = analyzeSchemaSync({ schemaFile, server })
 
