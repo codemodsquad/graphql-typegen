@@ -7,6 +7,7 @@ export type ConfigDirectives = {
   extract: string | true | undefined
   objectType: ObjectType | undefined
   useReadOnlyTypes: boolean | undefined
+  addTypename: boolean | undefined
 }
 
 export default function getConfigDirectives(
@@ -16,6 +17,7 @@ export default function getConfigDirectives(
   let extract: string | true | undefined = undefined
   let objectType: ObjectType | undefined = undefined
   let useReadOnlyTypes: boolean | undefined = undefined
+  let addTypename: boolean | undefined = undefined
   for (const value of lines) {
     if (!value) continue
     const parts = value.trim().split(/\s+/g, 4)
@@ -70,11 +72,22 @@ export default function getConfigDirectives(
             }
             useReadOnlyTypes = parts[i] === 'readOnly'
             break
+          case 'addTypename':
+          case 'noTypename':
+            if (addTypename !== undefined) {
+              throw new Error(
+                `duplicate addTypename directive: ${parts[i]} (after previous ${
+                  addTypename ? 'addTypename' : 'noTypename'
+                })`
+              )
+            }
+            addTypename = parts[i] === 'addTypename'
+            break
           default:
             throw new Error(`invalid directive: ${parts[i]}`)
         }
       }
     }
   }
-  return { external, extract, objectType, useReadOnlyTypes }
+  return { external, extract, objectType, useReadOnlyTypes, addTypename }
 }

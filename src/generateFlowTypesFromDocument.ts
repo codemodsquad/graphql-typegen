@@ -17,6 +17,7 @@ import j, {
   ObjectTypeProperty,
   GenericTypeAnnotation,
   ImportDeclaration,
+  ObjectTypeSpreadProperty,
 } from 'jscodeshift'
 import { FlowTypeKind } from 'ast-types/gen/kinds'
 import { Config, applyConfigDefaults } from './config'
@@ -66,19 +67,21 @@ export default function graphqlToFlow({
   function getCombinedConfig(
     ...args: (Partial<ConfigDirectives> | null | undefined)[]
   ): ConfigDirectives {
-    let { objectType, useReadOnlyTypes } = config
+    let { objectType, useReadOnlyTypes, addTypename } = config
     let external: string | undefined = undefined
     let extract: string | true | undefined = undefined
     for (const arg of args) {
       if (!arg) continue
       if (arg.objectType != null) objectType = arg.objectType
       if (arg.useReadOnlyTypes != null) useReadOnlyTypes = arg.useReadOnlyTypes
+      if (arg.addTypename != null) addTypename = arg.addTypename
       if (arg.hasOwnProperty('external')) external = arg.external
       if (arg.hasOwnProperty('extract')) extract = arg.extract
     }
     return {
       objectType,
       useReadOnlyTypes,
+      addTypename,
       extract,
       external,
     }
@@ -146,15 +149,18 @@ export default function graphqlToFlow({
     properties: Parameters<typeof j.objectTypeAnnotation>[0],
     { objectType, useReadOnlyTypes }: ConfigDirectives
   ): ObjectTypeAnnotation | GenericTypeAnnotation {
+    if (useReadOnlyTypes) {
+      properties.forEach(
+        (prop: ObjectTypeProperty | ObjectTypeSpreadProperty) => {
+          if (prop.type === 'ObjectTypeProperty') {
+            prop.variance = j.variance('plus')
+          }
+        }
+      )
+    }
     const annotation = j.objectTypeAnnotation(properties)
     annotation.exact = objectType === 'exact'
     annotation.inexact = objectType === 'inexact'
-    if (useReadOnlyTypes) {
-      return j.genericTypeAnnotation(
-        j.identifier('$ReadOnly'),
-        j.typeParameterInstantiation([annotation])
-      )
-    }
     return annotation
   }
 
@@ -363,21 +369,27 @@ export default function graphqlToFlow({
     config: ConfigDirectives
   ): FlowTypeKind {
     config = getCombinedConfig(config, type.config)
+    const { addTypename } = config
     const { selections } = selectionSet
     const propSelections: graphql.FieldNode[] = selections.filter(
       s => s.kind === 'Field'
     ) as graphql.FieldNode[]
+    const props = propSelections.map(s => convertField(s, type, config))
+    if (addTypename) {
+      props.unshift(
+        j.objectTypeProperty(
+          j.identifier('__typename'),
+          j.stringLiteralTypeAnnotation(type.name, type.name),
+          false
+        )
+      )
+    }
     const fragmentSelections: graphql.FragmentSpreadNode[] = selections.filter(
       s => s.kind === 'FragmentSpread'
     ) as graphql.FragmentSpreadNode[]
     const intersects = []
-    if (propSelections.length) {
-      intersects.push(
-        objectTypeAnnotation(
-          propSelections.map(s => convertField(s, type, config)),
-          config
-        )
-      )
+    if (props.length) {
+      intersects.push(objectTypeAnnotation(props, config))
     }
     fragmentSelections.forEach(spread => {
       const alias = fragments.get(spread.name.value)

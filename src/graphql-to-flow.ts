@@ -68,14 +68,12 @@ module.exports = function graphqlToFlow(
     )
   }
   const config = applyConfigDefaults(Object.assign(packageConf, options))
-  const { schemaFile, server } = config
+  const { schemaFile, server, tagName = 'gql' } = config
   const analyzedSchema = analyzeSchemaSync({ schemaFile, server })
 
   const parser = chooseJSCodeshiftParser(file)
   if (parser) j = j.withParser(parser)
   const root = j(code)
-  const gql =
-    findImports(root, statement`import gql from 'graphql-tag'`).gql || 'gql'
 
   function precomputeExpressionInGQLTemplateLiteral(
     path: ASTPath<any> | typeof FAIL
@@ -90,7 +88,7 @@ module.exports = function graphqlToFlow(
     }
     switch (node.type) {
       case 'TaggedTemplateExpression':
-        return node.tag.type === 'Identifier' && node.tag.name === gql
+        return node.tag.type === 'Identifier' && node.tag.name === tagName
           ? precomputeGQLTemplateLiteral(path)
           : FAIL
       case 'Identifier':
@@ -202,7 +200,7 @@ module.exports = function graphqlToFlow(
 
   const findQueryPaths = (root: Collection<any>): ASTPath<any>[] => [
     ...root
-      .find(j.TaggedTemplateExpression, { tag: { name: gql } })
+      .find(j.TaggedTemplateExpression, { tag: { name: tagName } })
       .paths()
       .filter((path: ASTPath<TaggedTemplateExpression>): boolean => {
         for (const pragma of getPragmas(path)) {

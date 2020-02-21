@@ -54,6 +54,7 @@ describe(`getCommentDirectives`, function() {
         useReadOnlyTypes: true,
         extract: 'Foob',
         external: undefined,
+        addTypename: undefined,
       })
     })
   })
