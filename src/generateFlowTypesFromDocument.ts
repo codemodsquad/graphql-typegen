@@ -3,9 +3,15 @@
 import graphql from 'graphql'
 import map from 'lodash/map'
 import upperFirst from 'lodash/upperFirst'
-import { AnalyzedType, AnalyzedInputField, EnumValue } from './analyzeSchema'
-import jscodeshift, {
-  JSCodeshift,
+import memoize from 'lodash/memoize'
+import once from 'lodash/once'
+import {
+  AnalyzedType,
+  AnalyzedInputField,
+  EnumValue,
+  AnalyzedField,
+} from './analyzeSchema'
+import j, {
   TypeAlias,
   ObjectTypeAnnotation,
   ObjectTypeProperty,
@@ -15,8 +21,8 @@ import jscodeshift, {
 } from 'jscodeshift'
 import { FlowTypeKind } from 'ast-types/gen/kinds'
 import { Config, applyConfigDefaults } from './config'
-
-import getExtractComment from './getExtractComment'
+import { ConfigDirectives } from './getConfigDirectives'
+import getCommentDirectives from './getCommentDirectives'
 
 type GeneratedQueryType = {
   variables?: TypeAlias
@@ -37,33 +43,109 @@ type GeneratedTypes = {
 }
 
 export default function graphqlToFlow({
-  jscodeshift: j,
   query,
   file,
   types,
-  config,
+  config: _config,
+  getMutationFunction,
 }: {
-  jscodeshift: JSCodeshift
   query: string | graphql.DocumentNode
   file: string
   types: Record<string, AnalyzedType>
   config: Config
+  getMutationFunction: () => string
 }): {
   statements: Statement[]
   generatedTypes: GeneratedTypes
   imports: ImportDeclaration[]
 } {
   const { statement } = j.template
+  const config = applyConfigDefaults(_config)
 
-  const {
-    addTypename,
-    useReadOnlyTypes,
-    objectType,
-    externalTypes,
-  } = applyConfigDefaults(config)
+  const MutationFunction = once(getMutationFunction)
+
+  function getCombinedConfig(
+    ...args: (Partial<ConfigDirectives> | null | undefined)[]
+  ): ConfigDirectives {
+    let { objectType, useReadOnlyTypes } = config
+    let external: string | undefined = undefined
+    let extract: string | true | undefined = undefined
+    for (const arg of args) {
+      if (!arg) continue
+      if (arg.objectType != null) objectType = arg.objectType
+      if (arg.useReadOnlyTypes != null) useReadOnlyTypes = arg.useReadOnlyTypes
+      if (arg.hasOwnProperty('external')) external = arg.external
+      if (arg.hasOwnProperty('extract')) extract = arg.extract
+    }
+    return {
+      objectType,
+      useReadOnlyTypes,
+      extract,
+      external,
+    }
+  }
+
+  const getExternalType = memoize(
+    (external: string): FlowTypeKind => {
+      external = external.trim()
+      if (/^import\s/.test(external)) {
+        const parsed = statement([external])
+        if (parsed.type !== 'ImportDeclaration') {
+          throw new Error(`invalid import declaration: ${external}`)
+        }
+        const decl: ImportDeclaration = parsed
+
+        if (decl.specifiers.length !== 1) {
+          throw new Error(
+            `import declaration must have only one specifier: ${external}`
+          )
+        }
+        const identifier = decl.specifiers[0].local?.name
+        if (!identifier) {
+          throw new Error(
+            `unable to determine imported identifier: ${external}`
+          )
+        }
+
+        return j.genericTypeAnnotation(j.identifier(identifier), null)
+      } else {
+        return j(`// @flow
+        type __T = ${external};`)
+          .find(j.TypeAlias)
+          .nodes()[0].right
+      }
+    }
+  )
+
+  const typeAliasCounts: Record<string, number> = {}
+
+  function addTypeAlias(name: string, type: FlowTypeKind): TypeAlias {
+    let count = typeAliasCounts[name]
+    if (count != null) {
+      typeAliasCounts[name] = ++count
+      name += count
+    } else {
+      typeAliasCounts[name] = 0
+    }
+    const alias = j.typeAlias(j.identifier(name), null, type)
+    statements.push(alias)
+    return alias
+  }
+
+  function extractIfNecessary(
+    type: FlowTypeKind,
+    as: string | null | undefined
+  ): FlowTypeKind {
+    if (as) {
+      const alias = addTypeAlias(as, type)
+      return j.genericTypeAnnotation(j.identifier(alias.id.name), null)
+    }
+    return type
+  }
 
   function objectTypeAnnotation(
-    properties: Parameters<typeof j.objectTypeAnnotation>[0]
+    properties: Parameters<typeof j.objectTypeAnnotation>[0],
+    { objectType, useReadOnlyTypes }: ConfigDirectives
   ): ObjectTypeAnnotation | GenericTypeAnnotation {
     const annotation = j.objectTypeAnnotation(properties)
     annotation.exact = objectType === 'exact'
@@ -77,21 +159,15 @@ export default function graphqlToFlow({
     return annotation
   }
 
-  function arrayTypeAnnotation(params: FlowTypeKind[]): GenericTypeAnnotation {
+  function arrayTypeAnnotation(
+    params: FlowTypeKind[],
+    { useReadOnlyTypes }: ConfigDirectives
+  ): GenericTypeAnnotation {
     return j.genericTypeAnnotation(
       j.identifier(useReadOnlyTypes ? '$ReadOnlyArray' : 'Array'),
       j.typeParameterInstantiation(params)
     )
   }
-
-  //   const external: Map<string, FlowTypeKind> = new Map()
-  //   for (const [key, value] of _external.entries()) {
-  //     const Analyzed = j(`// @flow
-  // type __T = ${value};`)
-  //       .find(j.TypeAlias)
-  //       .nodes()[0].right
-  //     external.set(key, Analyzed)
-  //   }
 
   const strippedFileName = file
     ? require('path')
@@ -124,16 +200,23 @@ export default function graphqlToFlow({
   function convertFragmentDefinition(
     def: graphql.FragmentDefinitionNode
   ): void {
-    if (external.has(def.name.value)) return
+    const config = getCombinedConfig(
+      { external: undefined, extract: undefined },
+      getCommentDirectives(def)
+    )
+    const { external } = config
+    if (external) return
+    let { extract } = config
+
     const type = convertSelectionSet(
       def.selectionSet,
-      types[def.typeCondition.name.value]
+      types[def.typeCondition.name.value],
+      config
     )
-    let extractedName = getExtractComment(def)
-    if (typeof extractedName !== 'string') {
-      extractedName = `${upperFirst(def.name.value)}`
+    if (typeof extract !== 'string') {
+      extract = `${upperFirst(def.name.value)}`
     }
-    const alias = addTypeAlias(extractedName, type)
+    const alias = addTypeAlias(extract, type)
     generatedTypes.fragment[def.name.value] = alias
     fragments.set(def.name.value, alias)
   }
@@ -142,6 +225,11 @@ export default function graphqlToFlow({
     def: graphql.OperationDefinitionNode
   ): void {
     const { operation, selectionSet, variableDefinitions } = def
+    const config = getCombinedConfig(
+      { external: undefined, extract: undefined },
+      getCommentDirectives(def)
+    )
+
     let name = def.name ? upperFirst(def.name.value) : `Unnamed`
     if (
       strippedFileName &&
@@ -154,7 +242,7 @@ export default function graphqlToFlow({
     }
     const data = addTypeAlias(
       `${name}Data`,
-      convertSelectionSet(selectionSet, types[upperFirst(operation)])
+      convertSelectionSet(selectionSet, types[upperFirst(operation)], config)
     )
     if (operation === 'query' || operation === 'subscription') {
       const operationTypes: GeneratedQueryType = def.name
@@ -163,7 +251,7 @@ export default function graphqlToFlow({
       if (variableDefinitions && variableDefinitions.length) {
         operationTypes.variables = addTypeAlias(
           `${name}Variables`,
-          convertVariableDefinitions(variableDefinitions)
+          convertVariableDefinitions(variableDefinitions, config)
         )
       }
     } else if (operation === 'mutation') {
@@ -171,11 +259,11 @@ export default function graphqlToFlow({
         variableDefinitions && variableDefinitions.length
           ? addTypeAlias(
               `${name}Variables`,
-              convertVariableDefinitions(variableDefinitions)
+              convertVariableDefinitions(variableDefinitions, config)
             )
           : null
       const mutationFunction = statement([
-        `type ${name}Function = ${MutationFunction}<${data.id.name}${
+        `type ${name}Function = ${MutationFunction()}<${data.id.name}${
           variables ? `, ${variables.id.name}` : ''
         }>`,
       ])
@@ -187,59 +275,64 @@ export default function graphqlToFlow({
     }
   }
 
-  const typeAliasCounts: Record<string, number> = {}
-
-  function addTypeAlias(name: string, type: FlowTypeKind): TypeAlias {
-    let count = typeAliasCounts[name]
-    if (count != null) {
-      typeAliasCounts[name] = ++count
-      name += count
-    } else {
-      typeAliasCounts[name] = 0
-    }
-    const alias = j.typeAlias(j.identifier(name), null, type)
-    statements.push(alias)
-    return alias
-  }
-
   function convertVariableDefinitions(
-    variableDefinitions: readonly graphql.VariableDefinitionNode[]
+    variableDefinitions: readonly graphql.VariableDefinitionNode[],
+    config: ConfigDirectives
   ): FlowTypeKind {
-    const props = variableDefinitions.map(def => convertVariableDefinition(def))
-    return objectTypeAnnotation(props)
+    const props = variableDefinitions.map(def =>
+      convertVariableDefinition(def, config)
+    )
+    return objectTypeAnnotation(props, config)
   }
 
   function convertVariableDefinition(
-    def: graphql.VariableDefinitionNode
+    def: graphql.VariableDefinitionNode,
+    config: ConfigDirectives
   ): ObjectTypeProperty {
+    config = getCombinedConfig(
+      config,
+      { external: undefined, extract: undefined },
+      getCommentDirectives(def)
+    )
     const {
       variable: { name },
       type,
     } = def
     return j.objectTypeProperty(
       j.identifier(name.value),
-      convertVariableType(type),
+      convertVariableType(type, config),
       type.kind !== 'NonNullType'
     )
   }
 
-  function convertVariableType(type: graphql.TypeNode): FlowTypeKind {
-    if (type.kind === 'NonNullType') return innerConvertVariableType(type.type)
-    return j.nullableTypeAnnotation(innerConvertVariableType(type))
+  function convertVariableType(
+    type: graphql.TypeNode,
+    config: ConfigDirectives
+  ): FlowTypeKind {
+    if (type.kind === 'NonNullType')
+      return innerConvertVariableType(type.type, config)
+    return j.nullableTypeAnnotation(innerConvertVariableType(type, config))
   }
 
   function innerConvertVariableType(
-    type: graphql.NamedTypeNode | graphql.ListTypeNode
+    type: graphql.NamedTypeNode | graphql.ListTypeNode,
+    config: ConfigDirectives
   ): FlowTypeKind {
     switch (type.kind) {
       case 'NamedType':
-        return convertVariableTypeName(type.name.value)
+        return convertVariableTypeName(type.name.value, config)
       case 'ListType':
-        return arrayTypeAnnotation([convertVariableType(type.type)])
+        return arrayTypeAnnotation(
+          [convertVariableType(type.type, config)],
+          config
+        )
     }
   }
 
-  function convertVariableTypeName(name: string): FlowTypeKind {
+  function convertVariableTypeName(
+    name: string,
+    config: ConfigDirectives
+  ): FlowTypeKind {
     switch (name) {
       case 'Boolean':
         return j.booleanTypeAnnotation()
@@ -251,16 +344,26 @@ export default function graphqlToFlow({
         return j.stringTypeAnnotation()
     }
     const type = types[name]
-    const externalType = external.get(name)
-    if (externalType) return externalType
-    if (type && type.inputFields) return convertInputType(type)
-    return j.mixedTypeAnnotation()
+    config = getCombinedConfig(
+      { external: undefined, extract: undefined },
+      type?.config,
+      config
+    )
+    const { external } = config
+    if (external) return getExternalType(external)
+    let { extract: as } = config
+    if (as === true) as = name
+    if (type && type.inputFields)
+      return extractIfNecessary(convertInputType(type, config), as)
+    return extractIfNecessary(j.mixedTypeAnnotation(), as)
   }
 
   function convertSelectionSet(
     selectionSet: graphql.SelectionSetNode,
-    type: AnalyzedType
+    type: AnalyzedType,
+    config: ConfigDirectives
   ): FlowTypeKind {
+    config = getCombinedConfig(config, type.config)
     const { selections } = selectionSet
     const propSelections: graphql.FieldNode[] = selections.filter(
       s => s.kind === 'Field'
@@ -271,20 +374,19 @@ export default function graphqlToFlow({
     const intersects = []
     if (propSelections.length) {
       intersects.push(
-        objectTypeAnnotation(propSelections.map(s => convertField(s, type)))
+        objectTypeAnnotation(
+          propSelections.map(s => convertField(s, type, config)),
+          config
+        )
       )
     }
     fragmentSelections.forEach(spread => {
-      if (external.has(spread.name.value)) {
-        intersects.push(external.get(spread.name.value))
-      } else {
-        const alias = fragments.get(spread.name.value)
-        if (!alias)
-          throw new Error(
-            `missing fragment definition named ${spread.name.value}`
-          )
-        intersects.push(j.genericTypeAnnotation(alias.id, null))
-      }
+      const alias = fragments.get(spread.name.value)
+      if (!alias)
+        throw new Error(
+          `missing fragment definition named ${spread.name.value}`
+        )
+      intersects.push(j.genericTypeAnnotation(alias.id, null))
     })
     return intersects.length === 1
       ? intersects[0]
@@ -297,10 +399,10 @@ export default function graphqlToFlow({
     return innerType
   }
 
-  function getFieldType(
+  function getAnalyzedField(
     objectType: AnalyzedType,
     fieldName: string
-  ): AnalyzedType {
+  ): AnalyzedField {
     const innerType = getInnerType(objectType)
     const { fields } = innerType
     if (!fields)
@@ -315,19 +417,32 @@ export default function graphqlToFlow({
         } doesn't have a field named ${fieldName}.  Valid fields are:
   ${map(fields, f => f.name).join('\n  ')}`
       )
-    return fieldDef.type
+    return fieldDef
   }
 
   function convertField(
     field: graphql.FieldNode,
-    type: AnalyzedType
+    type: AnalyzedType,
+    config: ConfigDirectives
   ): ObjectTypeProperty {
     const { name, alias, selectionSet, directives } = field
     let typeValue
     const fieldName = name.value
-    if (fieldName === '__typename')
+    if (fieldName === '__typename') {
       typeValue = j.stringLiteralTypeAnnotation(type.name, type.name)
-    else typeValue = convertType(getFieldType(type, fieldName), selectionSet)
+    } else {
+      const analyzedField = getAnalyzedField(type, fieldName)
+      typeValue = convertType(
+        analyzedField.type,
+        getCombinedConfig(
+          config,
+          { external: undefined, extract: undefined },
+          analyzedField.config,
+          getCommentDirectives(field)
+        ),
+        selectionSet
+      )
+    }
     if (directives) {
       for (const directive of directives) {
         const {
@@ -350,31 +465,32 @@ export default function graphqlToFlow({
 
   function convertType(
     type: AnalyzedType,
+    config: ConfigDirectives,
     selectionSet?: graphql.SelectionSetNode
   ): FlowTypeKind {
     if (type.kind === 'NON_NULL') {
       const { ofType } = type
       if (!ofType) throw new Error('unexpected: NON_NULL type missing ofType')
-      return innerConvertType(ofType, selectionSet)
+      return innerConvertType(ofType, config, selectionSet)
     }
-    return j.nullableTypeAnnotation(innerConvertType(type, selectionSet))
+    return j.nullableTypeAnnotation(
+      innerConvertType(type, config, selectionSet)
+    )
   }
 
   function innerConvertType(
     type: AnalyzedType,
+    config: ConfigDirectives,
     selectionSet?: graphql.SelectionSetNode
   ): FlowTypeKind {
+    config = getCombinedConfig(type.config, config)
     if (type.kind === graphql.TypeKind.LIST)
-      return convertListType(type, selectionSet)
+      return convertListType(type, config, selectionSet)
     const { name } = type
-    function extractIfNecessary(result: FlowTypeKind): FlowTypeKind {
-      if (extractTypes.has(name)) {
-        const flowTypeName = extractTypes.get(name) || name
-        const alias = addTypeAlias(flowTypeName, result)
-        return j.genericTypeAnnotation(j.identifier(alias.id.name), null)
-      }
-      return result
-    }
+    const { external } = config
+    if (external) return getExternalType(external)
+    let { extract: as } = config
+    if (as === true) as = name
     if (type.kind === graphql.TypeKind.ENUM) {
       const { enumValues } = type
       if (!enumValues) {
@@ -385,7 +501,8 @@ export default function graphqlToFlow({
           enumValues.map((value: EnumValue) =>
             j.stringLiteralTypeAnnotation(value.name, value.name)
           )
-        )
+        ),
+        as
       )
     }
     switch (name) {
@@ -398,42 +515,58 @@ export default function graphqlToFlow({
       case 'String':
         return j.stringTypeAnnotation()
     }
-    const externalType = external[name]
-    if (externalType) return externalType
     function convertCustomType(
       type: AnalyzedType,
       selectionSet?: graphql.SelectionSetNode
     ): FlowTypeKind {
       if (types[name]) type = types[name]
-      if (type.inputFields) return convertInputType(type)
+      if (type.inputFields) return convertInputType(type, config)
       if (selectionSet) {
-        return convertSelectionSet(selectionSet, type)
+        return convertSelectionSet(selectionSet, type, config)
       } else {
         return j.mixedTypeAnnotation()
       }
     }
-    return extractIfNecessary(convertCustomType(type, selectionSet))
+    return extractIfNecessary(convertCustomType(type, selectionSet), as)
   }
 
   function convertListType(
     type: AnalyzedType,
+    config: ConfigDirectives,
     selectionSet?: graphql.SelectionSetNode
   ): FlowTypeKind {
+    config = getCombinedConfig(type.config, config)
     const { ofType } = type
     if (!ofType) throw new Error('LIST type missing ofType')
-    return arrayTypeAnnotation([convertType(ofType, selectionSet)])
-  }
-
-  function convertInputType(type: AnalyzedType): FlowTypeKind {
-    return objectTypeAnnotation(
-      map(type.inputFields, field => convertInputField(field))
+    return arrayTypeAnnotation(
+      [convertType(ofType, config, selectionSet)],
+      config
     )
   }
 
-  function convertInputField(field: AnalyzedInputField): ObjectTypeProperty {
+  function convertInputType(
+    type: AnalyzedType,
+    config: ConfigDirectives
+  ): FlowTypeKind {
+    config = getCombinedConfig(type.config, config)
+    return objectTypeAnnotation(
+      map(type.inputFields, field => convertInputField(field, config)),
+      config
+    )
+  }
+
+  function convertInputField(
+    field: AnalyzedInputField,
+    config: ConfigDirectives
+  ): ObjectTypeProperty {
+    config = getCombinedConfig(
+      { extract: undefined, external: undefined },
+      field.config,
+      config
+    )
     return j.objectTypeProperty(
       j.identifier(field.name),
-      convertType(field.type),
+      convertType(field.type, config),
       field.type.kind !== 'NON_NULL'
     )
   }

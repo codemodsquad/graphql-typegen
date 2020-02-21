@@ -66,39 +66,49 @@ export type TypeKind =
 export type IntrospectionArg = {
   name: string
   type: IntrospectionType
+  description: string
 }
 
 export type AnalyzedArg = {
   name: string
   type: AnalyzedType
+  description: string
+  config?: ConfigDirectives
 }
 
 export type IntrospectionField = {
   name: string
   args: IntrospectionArg[]
   type: IntrospectionType
+  description: string
 }
 
 export type AnalyzedField = {
   name: string
   args: Record<string, AnalyzedArg>
   type: AnalyzedType
+  description: string
   parent?: AnalyzedType
+  config?: ConfigDirectives
 }
 
 export type IntrospectionInputField = {
   name: string
   type: IntrospectionType
+  description: string
 }
 
 export type AnalyzedInputField = {
   name: string
   type: AnalyzedType
+  description: string
   parent?: AnalyzedType
+  config?: ConfigDirectives
 }
 
 export type EnumValue = {
   name: string
+  description: string
 }
 
 export type IntrospectionType = {
@@ -127,10 +137,12 @@ function convertIntrospectionArgs(
   args: IntrospectionArg[]
 ): Record<string, AnalyzedArg> {
   const AnalyzedArgs: Record<string, AnalyzedArg> = {}
-  for (const { name, type } of args) {
+  for (const { name, type, description } of args) {
     AnalyzedArgs[name] = {
       name,
       type: convertIntrospectionType(type),
+      description,
+      config: getConfigDirectives(description.split(/\n/gm)),
     }
   }
   return AnalyzedArgs
@@ -140,11 +152,14 @@ function convertIntrospectionField({
   name,
   args,
   type,
+  description,
 }: IntrospectionField): AnalyzedField {
   return {
     name,
     type: convertIntrospectionType(type),
     args: convertIntrospectionArgs(args),
+    description,
+    config: getConfigDirectives(description.split(/\n/gm)),
   }
 }
 
@@ -161,8 +176,14 @@ function convertIntrospectionFields(
 function convertIntrospectionInputField({
   name,
   type,
+  description,
 }: IntrospectionInputField): AnalyzedInputField {
-  return { name, type: convertIntrospectionType(type) }
+  return {
+    name,
+    type: convertIntrospectionType(type),
+    description,
+    config: getConfigDirectives(description.split(/\n/gm)),
+  }
 }
 
 function convertIntrospectionInputFields(

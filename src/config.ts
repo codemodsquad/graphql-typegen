@@ -18,10 +18,6 @@ export type Config = {
    * Which Flow object type to output
    */
   objectType?: ObjectType
-  /**
-   * Map from GraphQL type name to JS type name or named import statement
-   */
-  externalTypes?: Record<string, string>
 }
 
 export type DefaultedConfig = {
@@ -42,10 +38,6 @@ export type DefaultedConfig = {
    * Which Flow object type to output
    */
   objectType: ObjectType
-  /**
-   * Map from GraphQL type name to JS type name or named import statement
-   */
-  externalTypes: Record<string, string>
 }
 
 export function applyConfigDefaults(config: Config): DefaultedConfig {
@@ -53,7 +45,6 @@ export function applyConfigDefaults(config: Config): DefaultedConfig {
   const addTypename = config.addTypename ?? true
   const useReadOnlyTypes = config.useReadOnlyTypes ?? false
   const objectType = config.objectType || 'ambiguous'
-  const externalTypes = config.externalTypes || {}
 
-  return { tagName, addTypename, useReadOnlyTypes, objectType, externalTypes }
+  return { tagName, addTypename, useReadOnlyTypes, objectType }
 }
