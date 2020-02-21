@@ -2,6 +2,14 @@ export type ObjectType = 'ambiguous' | 'exact' | 'inexact'
 
 export type Config = {
   /**
+   * The path to the GraphQL schema file to use
+   */
+  schemaFile?: string
+  /**
+   * The GraphQL server URL to use
+   */
+  server?: string
+  /**
    * Name of the template literal tag used to identify template literals
    * containing GraphQL queries in Javascript/Typescript code
    */
@@ -22,6 +30,14 @@ export type Config = {
 
 export type DefaultedConfig = {
   /**
+   * The path to the GraphQL schema file to use
+   */
+  schemaFile?: string
+  /**
+   * The GraphQL server URL to use
+   */
+  server?: string
+  /**
    * Name of the template literal tag used to identify template literals
    * containing GraphQL queries in Javascript/Typescript code
    */
@@ -41,10 +57,18 @@ export type DefaultedConfig = {
 }
 
 export function applyConfigDefaults(config: Config): DefaultedConfig {
+  const { schemaFile, server } = config
   const tagName = config.tagName || 'gql'
   const addTypename = config.addTypename ?? true
   const useReadOnlyTypes = config.useReadOnlyTypes ?? false
   const objectType = config.objectType || 'ambiguous'
 
-  return { tagName, addTypename, useReadOnlyTypes, objectType }
+  return {
+    schemaFile,
+    server,
+    tagName,
+    addTypename,
+    useReadOnlyTypes,
+    objectType,
+  }
 }

@@ -15,7 +15,6 @@ import j, {
   TypeAlias,
   ObjectTypeAnnotation,
   ObjectTypeProperty,
-  Statement,
   GenericTypeAnnotation,
   ImportDeclaration,
 } from 'jscodeshift'
@@ -55,7 +54,7 @@ export default function graphqlToFlow({
   config: Config
   getMutationFunction: () => string
 }): {
-  statements: Statement[]
+  statements: TypeAlias[]
   generatedTypes: GeneratedTypes
   imports: ImportDeclaration[]
 } {
@@ -179,7 +178,7 @@ export default function graphqlToFlow({
     typeof query === 'string' ? (query = graphql.parse(query)) : query
 
   const fragments = new Map()
-  const statements: Statement[] = []
+  const statements: TypeAlias[] = []
   const generatedTypes: GeneratedTypes = {
     query: {},
     mutation: {},

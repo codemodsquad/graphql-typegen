@@ -1,9 +1,13 @@
+#! /usr/bin/env babel-node
 /* eslint-disable @typescript-eslint/no-use-before-define */
 
 import gql from 'graphql-tag'
 import graphql from 'graphql'
 import superagent from 'superagent'
 import getConfigDirectives, { ConfigDirectives } from './getConfigDirectives'
+import loadSchema from './loadSchema'
+import { execFileSync } from 'child_process'
+import * as fs from 'fs'
 
 const typesQuery = gql`
   fragment typeInfo on __Type {
@@ -269,16 +273,21 @@ function analyzeTypes(
   return types
 }
 
+export type AnalyzedSchema = Record<string, AnalyzedType>
+
 export default async function analyzeSchema({
   schema,
+  schemaFile,
   server,
 }: {
+  schemaFile?: string
   schema?: graphql.GraphQLSchema
   server?: string
-}): Promise<Record<string, AnalyzedType>> {
+}): Promise<AnalyzedSchema> {
   let result: graphql.ExecutionResult<{
     __schema: { types: IntrospectionType[] }
   }>
+  if (schemaFile) schema = loadSchema(schemaFile)
   if (schema) result = await graphql.execute(schema, typesQuery)
   else if (server) {
     result = (
@@ -299,4 +308,46 @@ export default async function analyzeSchema({
     __schema: { types },
   } = data
   return analyzeTypes(types)
+}
+
+const schemaFileTimestamps: Map<string, Date> = new Map()
+const schemaCache: Map<string, AnalyzedSchema> = new Map()
+
+export function analyzeSchemaSync(options: {
+  schemaFile?: string
+  server?: string
+}): AnalyzedSchema {
+  const file = options.schemaFile
+  if (file) {
+    const timestamp = schemaFileTimestamps.get(file)
+    if (timestamp != null) {
+      const latest = fs.statSync(file).mtime
+      const cached = schemaCache.get(file)
+      if (latest > timestamp) {
+        schemaFileTimestamps.set(file, latest)
+        schemaCache.delete(file)
+      } else if (cached) {
+        return cached
+      }
+    }
+  }
+
+  const schema = JSON.parse(
+    execFileSync(__filename, [JSON.stringify(options)], { encoding: 'utf8' })
+  )
+  if (file) schemaCache.set(file, schema)
+  return schema
+}
+
+if (!module.parent) {
+  analyzeSchema(JSON.parse(process.argv[2])).then(
+    (result: any) => {
+      process.stdout.write(JSON.stringify(result))
+      process.exit(0)
+    },
+    (error: Error) => {
+      console.error(error.stack) // eslint-disable-line no-console
+      process.exit(1)
+    }
+  )
 }
