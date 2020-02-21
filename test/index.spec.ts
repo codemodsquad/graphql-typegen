@@ -12,6 +12,7 @@ for (const dir of dirs) {
       testFixtures({
         glob: path.join(__dirname, dir, '*.ts'),
         transform: require(`../src/${dir}`),
+        defaultParser: 'babylon',
       })
     })
   }

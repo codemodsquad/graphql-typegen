@@ -1,15 +1,15 @@
 import { FileInfo, API, Options } from 'jscodeshift'
 import pkgConf from 'pkg-conf'
 import { applyConfigDefaults } from './config'
-import { analyzeSchemaSync } from './analyzeSchema'
+import analyzeSchema from './analyzeSchema'
 import * as path from 'path'
 import graphqlTypegenCore from './graphqlTypegenCore'
 
-module.exports = function graphqlTypegen(
+module.exports = async function graphqlTypegenAsync(
   fileInfo: FileInfo,
   api: API,
   options: Options
-): string {
+): Promise<string> {
   const { path: file } = fileInfo
   const packageConf = pkgConf.sync('graphql-typegen', {
     cwd: path.dirname(file),
@@ -23,6 +23,6 @@ module.exports = function graphqlTypegen(
   }
   const config = applyConfigDefaults(Object.assign(packageConf, options))
   const { schemaFile, server } = config
-  const schema = analyzeSchemaSync({ schemaFile, server })
+  const schema = await analyzeSchema({ schemaFile, server })
   return graphqlTypegenCore(fileInfo, api, options, { schema })
 }

@@ -107,7 +107,7 @@
     "@types/jscodeshift": "^0.6.3",
     "@types/lodash": "^4.14.149",
     "@types/mocha": "^5.2.7",
-    "@types/node": "^12.12.6",
+    "@types/node": "^13.7.4",
     "@types/prettier": "^1.19.0",
     "@types/superagent": "^4.1.4",
     "babel-eslint": "^10.0.1",

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 
+import * as path from 'path'
 import * as graphql from 'graphql'
 import map from 'lodash/map'
 import upperFirst from 'lodash/upperFirst'
@@ -11,15 +12,16 @@ import {
   EnumValue,
   AnalyzedField,
 } from './analyzeSchema'
-import j, {
+import {
   TypeAlias,
   ObjectTypeProperty,
   GenericTypeAnnotation,
   ImportDeclaration,
+  JSCodeshift,
 } from 'jscodeshift'
 import { FlowTypeKind } from 'ast-types/gen/kinds'
-import { Config, applyConfigDefaults } from './config'
-import { ConfigDirectives } from './getConfigDirectives'
+import { Config, applyConfigDefaults, ObjectType } from './config'
+import { ConfigDirectives, External } from './getConfigDirectives'
 import getCommentDirectives from './getCommentDirectives'
 import readOnlyType from './readOnlyType'
 
@@ -47,35 +49,48 @@ export default function graphqlToFlow({
   types,
   config: _config,
   getMutationFunction,
+  j,
 }: {
   query: string | graphql.DocumentNode
   file: string
   types: Record<string, AnalyzedType>
   config: Config
   getMutationFunction: () => string
+  j: JSCodeshift
 }): {
   statements: TypeAlias[]
   generatedTypes: GeneratedTypes
   imports: ImportDeclaration[]
 } {
+  const cwd = path.dirname(file)
   const { statement } = j.template
   const config = applyConfigDefaults(_config)
 
   const MutationFunction = once(getMutationFunction)
 
   function getCombinedConfig(
-    ...args: (Partial<ConfigDirectives> | null | undefined)[]
+    ...args: (
+      | Partial<{
+          external: External | null | undefined
+          extract: string | true | null | undefined
+          objectType: ObjectType | undefined
+          useReadOnlyTypes: boolean | undefined
+          addTypename: boolean | undefined
+        }>
+      | null
+      | undefined
+    )[]
   ): ConfigDirectives {
     let { objectType, useReadOnlyTypes, addTypename } = config
-    let external: string | undefined = undefined
+    let external: External | undefined = undefined
     let extract: string | true | undefined = undefined
     for (const arg of args) {
       if (!arg) continue
       if (arg.objectType != null) objectType = arg.objectType
       if (arg.useReadOnlyTypes != null) useReadOnlyTypes = arg.useReadOnlyTypes
       if (arg.addTypename != null) addTypename = arg.addTypename
-      if (arg.hasOwnProperty('external')) external = arg.external
-      if (arg.hasOwnProperty('extract')) extract = arg.extract
+      if (arg.external !== undefined) external = arg.external ?? undefined
+      if (arg.extract !== undefined) extract = arg.extract ?? undefined
     }
     return {
       objectType,
@@ -87,14 +102,30 @@ export default function graphqlToFlow({
   }
 
   const getExternalType = memoize(
-    (external: string): FlowTypeKind => {
-      external = external.trim()
-      if (/^import\s/.test(external)) {
-        const parsed = statement([external])
+    (external: External): FlowTypeKind => {
+      if (typeof external === 'string') {
+        return j
+          .withParser('babylon')(
+            `// @flow
+        type __T = ${external};`
+          )
+          .find(j.TypeAlias)
+          .nodes()[0].right
+      } else {
+        const parsed = statement([external.import])
         if (parsed.type !== 'ImportDeclaration') {
           throw new Error(`invalid import declaration: ${external}`)
         }
         const decl: ImportDeclaration = parsed
+        const source = decl.source.value
+        if (typeof source === 'string' && /^[./]/.test(source)) {
+          decl.source.value = path.relative(
+            cwd,
+            path.resolve(external.cwd, source)
+          )
+          if (!decl.source.value.startsWith('.'))
+            decl.source.value = `./${decl.source.value}`
+        }
 
         if (decl.specifiers.length !== 1) {
           throw new Error(
@@ -107,13 +138,9 @@ export default function graphqlToFlow({
             `unable to determine imported identifier: ${external}`
           )
         }
+        imports.push(parsed)
 
         return j.genericTypeAnnotation(j.identifier(identifier), null)
-      } else {
-        return j(`// @flow
-        type __T = ${external};`)
-          .find(j.TypeAlias)
-          .nodes()[0].right
       }
     }
   )
@@ -201,8 +228,8 @@ export default function graphqlToFlow({
     def: graphql.FragmentDefinitionNode
   ): void {
     const config = getCombinedConfig(
-      { external: undefined, extract: undefined },
-      getCommentDirectives(def)
+      { external: null, extract: null },
+      getCommentDirectives(def, cwd)
     )
     const { external } = config
     if (external) return
@@ -226,8 +253,8 @@ export default function graphqlToFlow({
   ): void {
     const { operation, selectionSet, variableDefinitions } = def
     const config = getCombinedConfig(
-      { external: undefined, extract: undefined },
-      getCommentDirectives(def)
+      { external: null, extract: null },
+      getCommentDirectives(def, cwd)
     )
 
     let name = def.name ? upperFirst(def.name.value) : `Unnamed`
@@ -291,8 +318,8 @@ export default function graphqlToFlow({
   ): ObjectTypeProperty {
     config = getCombinedConfig(
       config,
-      { external: undefined, extract: undefined },
-      getCommentDirectives(def)
+      { external: null, extract: null },
+      getCommentDirectives(def, cwd)
     )
     const {
       variable: { name },
@@ -345,7 +372,7 @@ export default function graphqlToFlow({
     }
     const type = types[name]
     config = getCombinedConfig(
-      { external: undefined, extract: undefined },
+      { external: null, extract: null },
       type?.config,
       config
     )
@@ -446,9 +473,9 @@ export default function graphqlToFlow({
         analyzedField.type,
         getCombinedConfig(
           config,
-          { external: undefined, extract: undefined },
+          { external: null, extract: null },
           analyzedField.config,
-          getCommentDirectives(field)
+          getCommentDirectives(field, cwd)
         ),
         selectionSet
       )
@@ -570,7 +597,7 @@ export default function graphqlToFlow({
     config: ConfigDirectives
   ): ObjectTypeProperty {
     config = getCombinedConfig(
-      { extract: undefined, external: undefined },
+      { extract: null, external: null },
       field.config,
       config
     )

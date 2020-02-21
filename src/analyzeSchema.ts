@@ -7,6 +7,7 @@ import superagent from 'superagent'
 import getConfigDirectives, { ConfigDirectives } from './getConfigDirectives'
 import { execFileSync } from 'child_process'
 import * as fs from 'fs'
+import * as path from 'path'
 import flatted from 'flatted'
 
 const typesQuery = gql`
@@ -150,101 +151,109 @@ export type AnalyzedType = {
   config?: ConfigDirectives
 }
 
-function getDescriptionDirectives(
-  description: string | undefined
-): ConfigDirectives {
-  return getConfigDirectives(description ? description.split(/\n/gm) : [])
-}
+function analyzeTypes(
+  introspectionTypes: Array<IntrospectionType>,
+  {
+    cwd,
+  }: {
+    cwd: string
+  }
+): Record<string, AnalyzedType> {
+  function getDescriptionDirectives(
+    description: string | undefined
+  ): ConfigDirectives {
+    return getConfigDirectives(
+      description ? description.split(/\n/gm) : [],
+      cwd
+    )
+  }
 
-function convertIntrospectionArgs(
-  args: IntrospectionArg[]
-): Record<string, AnalyzedArg> {
-  const AnalyzedArgs: Record<string, AnalyzedArg> = {}
-  for (const { name, type, description } of args) {
-    AnalyzedArgs[name] = {
+  function convertIntrospectionArgs(
+    args: IntrospectionArg[]
+  ): Record<string, AnalyzedArg> {
+    const AnalyzedArgs: Record<string, AnalyzedArg> = {}
+    for (const { name, type, description } of args) {
+      AnalyzedArgs[name] = {
+        name,
+        type: convertIntrospectionType(type),
+        description,
+        config: getDescriptionDirectives(description),
+      }
+    }
+    return AnalyzedArgs
+  }
+
+  function convertIntrospectionField({
+    name,
+    args,
+    type,
+    description,
+  }: IntrospectionField): AnalyzedField {
+    return {
+      name,
+      type: convertIntrospectionType(type),
+      args: convertIntrospectionArgs(args),
+      description,
+      config: getDescriptionDirectives(description),
+    }
+  }
+
+  function convertIntrospectionFields(
+    fields: IntrospectionField[]
+  ): Record<string, AnalyzedField> {
+    const AnalyzedFields: Record<string, AnalyzedField> = {}
+    for (const field of fields) {
+      AnalyzedFields[field.name] = convertIntrospectionField(field)
+    }
+    return AnalyzedFields
+  }
+
+  function convertIntrospectionInputField({
+    name,
+    type,
+    description,
+  }: IntrospectionInputField): AnalyzedInputField {
+    return {
       name,
       type: convertIntrospectionType(type),
       description,
       config: getDescriptionDirectives(description),
     }
   }
-  return AnalyzedArgs
-}
 
-function convertIntrospectionField({
-  name,
-  args,
-  type,
-  description,
-}: IntrospectionField): AnalyzedField {
-  return {
-    name,
-    type: convertIntrospectionType(type),
-    args: convertIntrospectionArgs(args),
-    description,
-    config: getDescriptionDirectives(description),
+  function convertIntrospectionInputFields(
+    fields: IntrospectionInputField[]
+  ): Record<string, AnalyzedInputField> {
+    const AnalyzedFields: Record<string, AnalyzedInputField> = {}
+    for (const field of fields) {
+      AnalyzedFields[field.name] = convertIntrospectionInputField(field)
+    }
+    return AnalyzedFields
   }
-}
 
-function convertIntrospectionFields(
-  fields: IntrospectionField[]
-): Record<string, AnalyzedField> {
-  const AnalyzedFields: Record<string, AnalyzedField> = {}
-  for (const field of fields) {
-    AnalyzedFields[field.name] = convertIntrospectionField(field)
-  }
-  return AnalyzedFields
-}
-
-function convertIntrospectionInputField({
-  name,
-  type,
-  description,
-}: IntrospectionInputField): AnalyzedInputField {
-  return {
-    name,
-    type: convertIntrospectionType(type),
-    description,
-    config: getDescriptionDirectives(description),
-  }
-}
-
-function convertIntrospectionInputFields(
-  fields: IntrospectionInputField[]
-): Record<string, AnalyzedInputField> {
-  const AnalyzedFields: Record<string, AnalyzedInputField> = {}
-  for (const field of fields) {
-    AnalyzedFields[field.name] = convertIntrospectionInputField(field)
-  }
-  return AnalyzedFields
-}
-
-function convertIntrospectionType({
-  name,
-  description,
-  kind,
-  ofType,
-  fields,
-  inputFields,
-  enumValues,
-}: IntrospectionType): AnalyzedType {
-  return {
+  function convertIntrospectionType({
     name,
     description,
     kind,
-    ofType: ofType ? convertIntrospectionType(ofType) : null,
-    fields: fields ? convertIntrospectionFields(fields) : null,
-    inputFields: inputFields
-      ? convertIntrospectionInputFields(inputFields)
-      : null,
+    ofType,
+    fields,
+    inputFields,
     enumValues,
-    config: getDescriptionDirectives(description),
+  }: IntrospectionType): AnalyzedType {
+    return {
+      name,
+      description,
+      kind,
+      ofType: ofType ? convertIntrospectionType(ofType) : null,
+      fields: fields ? convertIntrospectionFields(fields) : null,
+      inputFields: inputFields
+        ? convertIntrospectionInputFields(inputFields)
+        : null,
+      enumValues,
+      config: getDescriptionDirectives(description),
+    }
   }
-}
 
-function analyzeTypes(
-  introspectionTypes: Array<IntrospectionType>
-): Record<string, AnalyzedType> {
   const types: Record<string, AnalyzedType> = {}
 
   for (const introspectionType of introspectionTypes) {
@@ -327,7 +336,8 @@ export default async function analyzeSchema({
   const {
     __schema: { types },
   } = data
-  return analyzeTypes(types)
+  const cwd = schemaFile ? path.dirname(schemaFile) : process.cwd()
+  return analyzeTypes(types, { cwd })
 }
 
 const schemaFileTimestamps: Map<string, Date> = new Map()

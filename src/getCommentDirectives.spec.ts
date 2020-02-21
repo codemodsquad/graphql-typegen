@@ -32,23 +32,29 @@ describe(`getCommentDirectives`, function() {
   it(`throws on invalid directive`, function() {
     expect(
       () =>
-        getCommentDirectives(fragment`
+        getCommentDirectives(
+          fragment`
         # @graphql-typegen readOnly blah
         fragment Foo on Bar {
           baz
         }
-      `).objectType
+      `,
+          process.cwd()
+        ).objectType
     ).to.throw('invalid directive: blah')
   })
   describe(`multiple directives`, function() {
     it(`works`, function() {
-      const config = getCommentDirectives(fragment`
+      const config = getCommentDirectives(
+        fragment`
         # @graphql-typegen readOnly exact
         # @graphql-typegen extract as Foob
         fragment Foo on Bar {
           baz
         }
-      `)
+      `,
+        process.cwd()
+      )
       expect(config).to.deep.equal({
         objectType: 'exact',
         useReadOnlyTypes: true,
@@ -61,18 +67,24 @@ describe(`getCommentDirectives`, function() {
   describe(`objectType and readOnly`, function() {
     it(`defaults`, function() {
       expect(
-        getCommentDirectives(fragment`
+        getCommentDirectives(
+          fragment`
         fragment Foo on Bar {
           baz
         }
-      `).objectType
+      `,
+          process.cwd()
+        ).objectType
       ).to.be.undefined
       expect(
-        getCommentDirectives(fragment`
+        getCommentDirectives(
+          fragment`
         fragment Foo on Bar {
           baz
         }
-      `).useReadOnlyTypes
+      `,
+          process.cwd()
+        ).useReadOnlyTypes
       ).to.be.undefined
     })
     it(`exact works`, function() {
@@ -87,68 +99,86 @@ describe(`getCommentDirectives`, function() {
     })
     it(`inexact works`, function() {
       expect(
-        getCommentDirectives(fragment`
+        getCommentDirectives(
+          fragment`
         # @graphql-typegen inexact
         fragment Foo on Bar {
           baz
         }
-      `).objectType
+      `,
+          process.cwd()
+        ).objectType
       ).to.equal('inexact')
     })
     it(`ambiguous works`, function() {
       expect(
-        getCommentDirectives(fragment`
+        getCommentDirectives(
+          fragment`
         # @graphql-typegen ambiguous
         fragment Foo on Bar {
           baz
         }
-      `).objectType
+      `,
+          process.cwd()
+        ).objectType
       ).to.equal('ambiguous')
     })
     it(`throws on duplicate object type`, function() {
       expect(
         () =>
-          getCommentDirectives(fragment`
+          getCommentDirectives(
+            fragment`
         # @graphql-typegen exact
         # @graphql-typegen inexact
         fragment Foo on Bar {
           baz
         }
-      `).objectType
+      `,
+            process.cwd()
+          ).objectType
       ).to.throw(
         'duplicate object type directive: inexact (after previous exact)'
       )
     })
     it(`readOnly works`, function() {
       expect(
-        getCommentDirectives(fragment`
+        getCommentDirectives(
+          fragment`
         # @graphql-typegen readOnly
         fragment Foo on Bar {
           baz
         }
-      `).useReadOnlyTypes
+      `,
+          process.cwd()
+        ).useReadOnlyTypes
       ).to.be.true
     })
     it(`mutable works`, function() {
       expect(
-        getCommentDirectives(fragment`
+        getCommentDirectives(
+          fragment`
         # @graphql-typegen mutable
         fragment Foo on Bar {
           baz
         }
-      `).useReadOnlyTypes
+      `,
+          process.cwd()
+        ).useReadOnlyTypes
       ).to.be.false
     })
     it(`throws on duplicate readOnly`, function() {
       expect(
         () =>
-          getCommentDirectives(fragment`
+          getCommentDirectives(
+            fragment`
         # @graphql-typegen readOnly
         # @graphql-typegen mutable
         fragment Foo on Bar {
           baz
         }
-      `).objectType
+      `,
+            process.cwd()
+          ).objectType
       ).to.throw(
         'duplicate readOnly/mutable directive: mutable (after previous readOnly)'
       )
@@ -158,65 +188,83 @@ describe(`getCommentDirectives`, function() {
     describe(`on fragment`, function() {
       it(`returns undefined if there's no comment`, function() {
         expect(
-          getCommentDirectives(fragment`
+          getCommentDirectives(
+            fragment`
           fragment Foo on Bar {
             baz
           }
-        `).external
+        `,
+            process.cwd()
+          ).external
         ).to.be.undefined
       })
       it(`returns undefined if no comments are relevant`, function() {
         expect(
-          getCommentDirectives(fragment`
+          getCommentDirectives(
+            fragment`
           # @graphql-typegen inexact
           fragment Foo on Bar {
             baz
           }
-        `).external
+        `,
+            process.cwd()
+          ).external
         ).to.be.undefined
       })
       it(`throws if there's a comment without an as clause`, function() {
         expect(
           () =>
-            getCommentDirectives(fragment`
+            getCommentDirectives(
+              fragment`
           # blah
           # @graphql-typegen external
           fragment Foo on Bar {
             baz
           }
-        `).external
+        `,
+              process.cwd()
+            ).external
         ).to.throw('missing as clause after external')
       })
       it(`returns identifier from as clause if given`, function() {
         expect(
-          getCommentDirectives(fragment`
+          getCommentDirectives(
+            fragment`
           # @graphql-typegen external as Foob
           fragment Foo on Bar {
             baz
           }
-        `).external
+        `,
+            process.cwd()
+          ).external
         ).to.equal('Foob')
       })
       it(`throws if invalid token comes after external`, function() {
         expect(
           () =>
-            getCommentDirectives(fragment`
+            getCommentDirectives(
+              fragment`
           # @graphql-typegen external ass
           fragment Foo on Bar {
             baz
           }
-        `).external
+        `,
+              process.cwd()
+            ).external
         ).to.throw('invalid token after external: ass')
       })
       it(`throws if external as identifier is invalid`, function() {
         expect(
           () =>
-            getCommentDirectives(fragment`
+            getCommentDirectives(
+              fragment`
           # @graphql-typegen external as 0foo
           fragment Foo on Bar {
             baz
           }
-        `).external
+        `,
+              process.cwd()
+            ).external
         ).to.throw('invalid external as identifier: 0foo')
       })
     })
@@ -226,65 +274,86 @@ describe(`getCommentDirectives`, function() {
       })
       it(`returns undefined if no comments are relevant`, function() {
         expect(
-          getCommentDirectives(field`
+          getCommentDirectives(
+            field`
           # @graphql-typegen readOnly
           baz
-        `).external
+        `,
+            process.cwd()
+          ).external
         ).to.be.undefined
       })
       it(`throws if there's a comment without an as clause`, function() {
         expect(
           () =>
-            getCommentDirectives(field`
+            getCommentDirectives(
+              field`
           # blah
           # @graphql-typegen external
           baz
-        `).external
+        `,
+              process.cwd()
+            ).external
         ).to.throw('missing as clause after external')
       })
       it(`throws if not followed by as`, function() {
         expect(
           () =>
-            getCommentDirectives(field`
+            getCommentDirectives(
+              field`
           # blah
           # @graphql-typegen external ass
           baz
-        `).external
+        `,
+              process.cwd()
+            ).external
         ).to.throw('invalid token after external: ass')
       })
       it(`returns identifier from as clause if given`, function() {
         expect(
-          getCommentDirectives(field`
+          getCommentDirectives(
+            field`
           # @graphql-typegen external as Foob
           baz
-        `).external
+        `,
+            process.cwd()
+          ).external
         ).to.equal('Foob')
       })
       it(`throws if invalid token comes after external`, function() {
         expect(
           () =>
-            getCommentDirectives(field`
+            getCommentDirectives(
+              field`
           # @graphql-typegen external ass
           baz
-        `).external
+        `,
+              process.cwd()
+            ).external
         ).to.throw('invalid token after external: ass')
       })
       it(`throws if external as identifier is invalid`, function() {
         expect(
           () =>
-            getCommentDirectives(field`
+            getCommentDirectives(
+              field`
           # @graphql-typegen external as 0foo
           baz
-        `).external
+        `,
+              process.cwd()
+            ).external
         ).to.throw('invalid external as identifier: 0foo')
       })
       it(`throws if external identifier is missing`, function() {
         expect(
           () =>
-            getCommentDirectives(field`
+            getCommentDirectives(
+              field`
           # @graphql-typegen external as
           baz
-        `).external
+        `,
+              process.cwd()
+            ).external
         ).to.throw('missing identifier after external as')
       })
     })
@@ -293,121 +362,158 @@ describe(`getCommentDirectives`, function() {
     describe(`on fragment`, function() {
       it(`returns undefined if there's no comment`, function() {
         expect(
-          getCommentDirectives(fragment`
+          getCommentDirectives(
+            fragment`
           fragment Foo on Bar {
             baz
           }
-        `).extract
+        `,
+            process.cwd()
+          ).extract
         ).to.be.undefined
       })
       it(`returns undefined if no comments are relevant`, function() {
         expect(
-          getCommentDirectives(fragment`
+          getCommentDirectives(
+            fragment`
           # @graphql-typegen inexact
           fragment Foo on Bar {
             baz
           }
-        `).extract
+        `,
+            process.cwd()
+          ).extract
         ).to.be.undefined
       })
       it(`returns true if there's a comment without an as clause`, function() {
         expect(
-          getCommentDirectives(fragment`
+          getCommentDirectives(
+            fragment`
           # blah
           # @graphql-typegen extract
           fragment Foo on Bar {
             baz
           }
-        `).extract
+        `,
+            process.cwd()
+          ).extract
         ).to.be.true
       })
       it(`returns identifier from as clause if given`, function() {
         expect(
-          getCommentDirectives(fragment`
+          getCommentDirectives(
+            fragment`
           # @graphql-typegen extract as Foob
           fragment Foo on Bar {
             baz
           }
-        `).extract
+        `,
+            process.cwd()
+          ).extract
         ).to.equal('Foob')
       })
       it(`throws if invalid token comes after extract`, function() {
         expect(
           () =>
-            getCommentDirectives(fragment`
+            getCommentDirectives(
+              fragment`
           # @graphql-typegen extract ass
           fragment Foo on Bar {
             baz
           }
-        `).extract
+        `,
+              process.cwd()
+            ).extract
         ).to.throw('invalid token after extract: ass')
       })
       it(`throws if extract as identifier is invalid`, function() {
         expect(
           () =>
-            getCommentDirectives(fragment`
+            getCommentDirectives(
+              fragment`
           # @graphql-typegen extract as 0foo
           fragment Foo on Bar {
             baz
           }
-        `).extract
+        `,
+              process.cwd()
+            ).extract
         ).to.throw('invalid extract as identifier: 0foo')
       })
     })
     describe(`on field`, function() {
       it(`returns undefined if there's no comment`, function() {
-        expect(getCommentDirectives(field`baz`).extract).to.be.undefined
+        expect(getCommentDirectives(field`baz`, process.cwd()).extract).to.be
+          .undefined
       })
       it(`returns undefined if no comments are relevant`, function() {
         expect(
-          getCommentDirectives(field`
+          getCommentDirectives(
+            field`
           # @graphql-typegen readOnly
           baz
-        `).extract
+        `,
+            process.cwd()
+          ).extract
         ).to.be.undefined
       })
       it(`returns true if there's a comment without an as clause`, function() {
         expect(
-          getCommentDirectives(field`
+          getCommentDirectives(
+            field`
           # blah
           # @graphql-typegen extract
           baz
-        `).extract
+        `,
+            process.cwd()
+          ).extract
         ).to.be.true
       })
       it(`returns identifier from as clause if given`, function() {
         expect(
-          getCommentDirectives(field`
+          getCommentDirectives(
+            field`
           # @graphql-typegen extract as Foob
           baz
-        `).extract
+        `,
+            process.cwd()
+          ).extract
         ).to.equal('Foob')
       })
       it(`throws if invalid token comes after extract`, function() {
         expect(
           () =>
-            getCommentDirectives(field`
+            getCommentDirectives(
+              field`
           # @graphql-typegen extract ass
           baz
-        `).extract
+        `,
+              process.cwd()
+            ).extract
         ).to.throw('invalid token after extract: ass')
       })
       it(`throws if extract as identifier is invalid`, function() {
         expect(
           () =>
-            getCommentDirectives(field`
+            getCommentDirectives(
+              field`
           # @graphql-typegen extract as 0foo
           baz
-        `).extract
+        `,
+              process.cwd()
+            ).extract
         ).to.throw('invalid extract as identifier: 0foo')
       })
       it(`throws if extract as identifier is missing`, function() {
         expect(
           () =>
-            getCommentDirectives(field`
+            getCommentDirectives(
+              field`
           # @graphql-typegen extract as
           baz
-        `).extract
+        `,
+              process.cwd()
+            ).extract
         ).to.throw('missing identifier after extract as')
       })
     })

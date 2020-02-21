@@ -2,8 +2,10 @@ import { pragma } from './pragma'
 import isValidIdentifier from './isValidIdentifier'
 import { ObjectType } from './config'
 
+export type External = string | { import: string; cwd: string }
+
 export type ConfigDirectives = {
-  external: string | undefined
+  external: External | undefined
   extract: string | true | undefined
   objectType: ObjectType | undefined
   useReadOnlyTypes: boolean | undefined
@@ -11,16 +13,18 @@ export type ConfigDirectives = {
 }
 
 export default function getConfigDirectives(
-  lines: Iterable<string>
+  lines: Iterable<string>,
+  cwd: string
 ): ConfigDirectives {
-  let external: string | undefined = undefined
+  let external: External | undefined = undefined
   let extract: string | true | undefined = undefined
   let objectType: ObjectType | undefined = undefined
   let useReadOnlyTypes: boolean | undefined = undefined
   let addTypename: boolean | undefined = undefined
-  for (const value of lines) {
+  for (let value of lines) {
+    value = value.trim()
     if (!value) continue
-    const parts = value.trim().split(/\s+/g, 4)
+    const parts = value.split(/\s+/g, 4)
     if (parts[0] !== pragma) continue
     if (parts[1] === 'extract') {
       if (extract !== undefined) {
@@ -42,7 +46,9 @@ export default function getConfigDirectives(
       }
       if (parts[2] == 'as') {
         if (!parts[3]) throw new Error(`missing identifier after external as`)
-        else if (isValidIdentifier(parts[3])) external = parts[3]
+        else if (parts[3] === 'import') {
+          external = { import: value.substring(value.indexOf('import')), cwd }
+        } else if (isValidIdentifier(parts[3])) external = parts[3]
         else throw new Error(`invalid external as identifier: ${parts[3]}`)
       } else {
         if (!parts[2]) throw new Error(`missing as clause after external`)

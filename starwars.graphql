@@ -1,3 +1,8 @@
+"""
+@graphql-typegen external as import { type DateISOString } from './src/DateISOString'
+"""
+scalar Date
+
 schema {
   query: Query
   mutation: Mutation
@@ -70,6 +75,7 @@ type Human implements Character {
   appearsIn: [Episode]!
   # A list of starships this person has piloted, or an empty list if none
   starships: [Starship]
+  birthday: Date
 }
 # An autonomous mechanical character in the Star Wars universe
 type Droid implements Character {

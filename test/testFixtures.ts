@@ -49,61 +49,69 @@ export default function textFixtures({
         ? path.resolve(path.dirname(fixturePath), fixture.file)
         : fixturePath
     )
-    it(path.basename(fixturePath).replace(/\.js$/, ''), function() {
-      let source = input
-      const position = source.indexOf('// position')
-      let selectionStart
-      let selectionEnd
-      if (position >= 0) {
-        selectionStart = selectionEnd = position
-        source = source.replace(/^\s*\/\/ position[^\r\n]*(\r\n?|\n)/gm, '')
-      } else {
-        selectionStart = source.indexOf('/* selectionStart */')
-        if (selectionStart >= 0) {
-          source = source.replace('/* selectionStart */', '')
-          selectionEnd = source.indexOf('/* selectionEnd */')
-          if (selectionEnd < 0) {
-            throw new Error(
-              '/* selectionEnd */ must be given if /* selectionStart */ is'
-            )
+    it(
+      path.basename(fixturePath).replace(/\.js$/, ''),
+      async function(): Promise<void> {
+        let source = input
+        const position = source.indexOf('// position')
+        let selectionStart
+        let selectionEnd
+        if (position >= 0) {
+          selectionStart = selectionEnd = position
+          source = source.replace(/^\s*\/\/ position[^\r\n]*(\r\n?|\n)/gm, '')
+        } else {
+          selectionStart = source.indexOf('/* selectionStart */')
+          if (selectionStart >= 0) {
+            source = source.replace('/* selectionStart */', '')
+            selectionEnd = source.indexOf('/* selectionEnd */')
+            if (selectionEnd < 0) {
+              throw new Error(
+                '/* selectionEnd */ must be given if /* selectionStart */ is'
+              )
+            }
+            source = source.replace('/* selectionEnd */', '')
           }
-          source = source.replace('/* selectionEnd */', '')
+        }
+        if (selectionStart < 0) selectionStart = position
+        if (selectionEnd < 0) selectionEnd = position
+        const options = { ...transformOptions, ...fixture.options }
+        if (selectionStart >= 0 && selectionEnd >= 0) {
+          Object.assign(options, { selectionStart, selectionEnd })
+        }
+
+        const stats: Record<string, number> = {}
+        const report = []
+        const parser = fixture.parser || defaultParser
+        const j = parser ? jscodeshift.withParser(parser) : jscodeshift
+        const doTransform = ():
+          | string
+          | null
+          | void
+          | undefined
+          | Promise<string | null | void | undefined> =>
+          transform(
+            { path: file, source },
+            {
+              j,
+              jscodeshift: j,
+              stats: (name: string, quantity = 1): void => {
+                const total = stats[name]
+                stats[name] = total != null ? total + quantity : quantity
+              },
+              report: (msg: string) => report.push(msg),
+            },
+            options
+          )
+        if (fixture.expectedError) {
+          expect(doTransform).to.throw(fixture.expectedError)
+        } else {
+          const result = await doTransform()
+          if (!result) expect(result).to.equal(fixture.expected)
+          else expect(normalize(result)).to.equal(normalize(expected))
+          if (fixture.stats) expect(stats).to.deep.equal(fixture.stats)
+          if (fixture.report) expect(report).to.deep.equal(fixture.report)
         }
       }
-      if (selectionStart < 0) selectionStart = position
-      if (selectionEnd < 0) selectionEnd = position
-      const options = { ...transformOptions, ...fixture.options }
-      if (selectionStart >= 0 && selectionEnd >= 0) {
-        Object.assign(options, { selectionStart, selectionEnd })
-      }
-
-      const stats: Record<string, number> = {}
-      const report = []
-      const parser = fixture.parser || defaultParser
-      const j = parser ? jscodeshift.withParser(parser) : jscodeshift
-      const doTransform = (): string | null | void | undefined =>
-        transform(
-          { path: file, source },
-          {
-            j,
-            jscodeshift: j,
-            stats: (name: string, quantity = 1): void => {
-              const total = stats[name]
-              stats[name] = total != null ? total + quantity : quantity
-            },
-            report: (msg: string) => report.push(msg),
-          },
-          options
-        )
-      if (fixture.expectedError) {
-        expect(doTransform).to.throw(fixture.expectedError)
-      } else {
-        const result = doTransform()
-        if (!result) expect(result).to.equal(fixture.expected)
-        else expect(normalize(result)).to.equal(normalize(expected))
-        if (fixture.stats) expect(stats).to.deep.equal(fixture.stats)
-        if (fixture.report) expect(report).to.deep.equal(fixture.report)
-      }
-    })
+    )
   }
 }
