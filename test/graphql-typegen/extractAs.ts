@@ -5,7 +5,7 @@ import gql from 'graphql-tag'
 
 const query = gql\`
 query Test($id: ID!) {
-  # @graphql-to-flow extract as StarWarsCharacter
+  # @graphql-typegen extract as StarWarsCharacter
   character(id: $id) {
     id
     name
@@ -22,13 +22,13 @@ export const options = {
 
 export const expected = `
 ${input}
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryVariables = { id: string }
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryData = { character: ?StarWarsCharacter }
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type StarWarsCharacter = {
   id: string,
   name: string,

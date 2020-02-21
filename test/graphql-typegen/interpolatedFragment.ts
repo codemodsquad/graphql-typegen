@@ -10,22 +10,12 @@ fragment CharacterFields on Character {
 }
 \`
 
-const fragment2 = gql\`
-\${fragment}
-fragment CharacterAndFriends on Character {
-  ...CharacterFields
-  friends {
-    ...CharacterFields
-  }
-}
-\`
-
 const query = gql\`
-\${fragment2}
+\${fragment}
 query Test($id: ID!) {
   character(id: $id) {
     id
-    ...CharacterAndFriends
+    ...CharacterFields
   }
 }
 \`
@@ -46,40 +36,25 @@ fragment CharacterFields on Character {
 }
 \`
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type CharacterFields = {
   name: string,
   appearsIn: Array<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
 }
 
-const fragment2 = gql\`
+const query = gql\`
 \${fragment}
-fragment CharacterAndFriends on Character {
-  ...CharacterFields
-  friends {
+query Test($id: ID!) {
+  character(id: $id) {
+    id
     ...CharacterFields
   }
 }
 \`
 
-// @graphql-to-flow auto-generated
-type CharacterAndFriends = {
-  friends: ?Array<?CharacterFields>,
-} & CharacterFields
-
-const query = gql\`
-\${fragment2}
-query Test($id: ID!) {
-  character(id: $id) {
-    id
-    ...CharacterAndFriends
-  }
-}
-\`
-
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryVariables = { id: string }
 
-// @graphql-to-flow auto-generated
-type TestQueryData = { character: ?({ id: string, } & CharacterAndFriends) }
+// @graphql-typegen auto-generated
+type TestQueryData = { character: ?({ id: string, } & CharacterFields) }
 `

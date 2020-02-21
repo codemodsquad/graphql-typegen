@@ -6,7 +6,7 @@ import gql from 'graphql-tag'
 const fragment = gql\`
 fragment CharacterFields on Character {
   name
-  # @graphql-to-flow extract
+  # @graphql-typegen extract
   appearsIn
 }
 \`
@@ -33,18 +33,18 @@ import gql from 'graphql-tag'
 const fragment = gql\`
 fragment CharacterFields on Character {
   name
-  # @graphql-to-flow extract
+  # @graphql-typegen extract
   appearsIn
 }
 \`
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type CharacterFields = {
   name: string,
   appearsIn: Array<?Episode>,
 }
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type Episode = 'NEWHOPE' | 'EMPIRE' | 'JEDI'
 
 const query = gql\`
@@ -57,9 +57,9 @@ query Test($id: ID!) {
 }
 \`
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryVariables = { id: string }
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryData = { character: ?({ id: string, } & CharacterFields) }
 `

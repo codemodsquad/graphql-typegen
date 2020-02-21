@@ -3,13 +3,18 @@ import * as path from 'path'
 export const input = `
 import gql from 'graphql-tag'
 
+const appearsIn = 'appearsIn'
+
+const characterFields = \`
+  name
+  \${appearsIn}
+\`
+
 const query = gql\`
-# @graphql-to-flow addTypename
 query Test($id: ID!) {
   character(id: $id) {
     id
-    name
-    appearsIn
+    \${characterFields}
   }
 }
 \`
@@ -22,14 +27,13 @@ export const options = {
 
 export const expected = `
 ${input}
-// @graphql-to-flow auto-generated
+
+// @graphql-typegen auto-generated
 type TestQueryVariables = { id: string }
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryData = {
-  __typename: 'Query',
   character: ?{
-    __typename: 'Character',
     id: string,
     name: string,
     appearsIn: Array<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,

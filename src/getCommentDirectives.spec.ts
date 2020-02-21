@@ -33,7 +33,7 @@ describe(`getCommentDirectives`, function() {
     expect(
       () =>
         getCommentDirectives(fragment`
-        # @graphql-to-flow readOnly blah
+        # @graphql-typegen readOnly blah
         fragment Foo on Bar {
           baz
         }
@@ -43,8 +43,8 @@ describe(`getCommentDirectives`, function() {
   describe(`multiple directives`, function() {
     it(`works`, function() {
       const config = getCommentDirectives(fragment`
-        # @graphql-to-flow readOnly exact
-        # @graphql-to-flow extract as Foob
+        # @graphql-typegen readOnly exact
+        # @graphql-typegen extract as Foob
         fragment Foo on Bar {
           baz
         }
@@ -78,7 +78,7 @@ describe(`getCommentDirectives`, function() {
     it(`exact works`, function() {
       expect(
         getCommentDirectives(fragment`
-        # @graphql-to-flow exact
+        # @graphql-typegen exact
         fragment Foo on Bar {
           baz
         }
@@ -88,7 +88,7 @@ describe(`getCommentDirectives`, function() {
     it(`inexact works`, function() {
       expect(
         getCommentDirectives(fragment`
-        # @graphql-to-flow inexact
+        # @graphql-typegen inexact
         fragment Foo on Bar {
           baz
         }
@@ -98,7 +98,7 @@ describe(`getCommentDirectives`, function() {
     it(`ambiguous works`, function() {
       expect(
         getCommentDirectives(fragment`
-        # @graphql-to-flow ambiguous
+        # @graphql-typegen ambiguous
         fragment Foo on Bar {
           baz
         }
@@ -109,8 +109,8 @@ describe(`getCommentDirectives`, function() {
       expect(
         () =>
           getCommentDirectives(fragment`
-        # @graphql-to-flow exact
-        # @graphql-to-flow inexact
+        # @graphql-typegen exact
+        # @graphql-typegen inexact
         fragment Foo on Bar {
           baz
         }
@@ -122,7 +122,7 @@ describe(`getCommentDirectives`, function() {
     it(`readOnly works`, function() {
       expect(
         getCommentDirectives(fragment`
-        # @graphql-to-flow readOnly
+        # @graphql-typegen readOnly
         fragment Foo on Bar {
           baz
         }
@@ -132,7 +132,7 @@ describe(`getCommentDirectives`, function() {
     it(`mutable works`, function() {
       expect(
         getCommentDirectives(fragment`
-        # @graphql-to-flow mutable
+        # @graphql-typegen mutable
         fragment Foo on Bar {
           baz
         }
@@ -143,8 +143,8 @@ describe(`getCommentDirectives`, function() {
       expect(
         () =>
           getCommentDirectives(fragment`
-        # @graphql-to-flow readOnly
-        # @graphql-to-flow mutable
+        # @graphql-typegen readOnly
+        # @graphql-typegen mutable
         fragment Foo on Bar {
           baz
         }
@@ -168,7 +168,7 @@ describe(`getCommentDirectives`, function() {
       it(`returns undefined if no comments are relevant`, function() {
         expect(
           getCommentDirectives(fragment`
-          # @graphql-to-flow inexact
+          # @graphql-typegen inexact
           fragment Foo on Bar {
             baz
           }
@@ -180,7 +180,7 @@ describe(`getCommentDirectives`, function() {
           () =>
             getCommentDirectives(fragment`
           # blah
-          # @graphql-to-flow external
+          # @graphql-typegen external
           fragment Foo on Bar {
             baz
           }
@@ -190,7 +190,7 @@ describe(`getCommentDirectives`, function() {
       it(`returns identifier from as clause if given`, function() {
         expect(
           getCommentDirectives(fragment`
-          # @graphql-to-flow external as Foob
+          # @graphql-typegen external as Foob
           fragment Foo on Bar {
             baz
           }
@@ -201,7 +201,7 @@ describe(`getCommentDirectives`, function() {
         expect(
           () =>
             getCommentDirectives(fragment`
-          # @graphql-to-flow external ass
+          # @graphql-typegen external ass
           fragment Foo on Bar {
             baz
           }
@@ -212,7 +212,7 @@ describe(`getCommentDirectives`, function() {
         expect(
           () =>
             getCommentDirectives(fragment`
-          # @graphql-to-flow external as 0foo
+          # @graphql-typegen external as 0foo
           fragment Foo on Bar {
             baz
           }
@@ -227,7 +227,7 @@ describe(`getCommentDirectives`, function() {
       it(`returns undefined if no comments are relevant`, function() {
         expect(
           getCommentDirectives(field`
-          # @graphql-to-flow readOnly
+          # @graphql-typegen readOnly
           baz
         `).external
         ).to.be.undefined
@@ -237,7 +237,7 @@ describe(`getCommentDirectives`, function() {
           () =>
             getCommentDirectives(field`
           # blah
-          # @graphql-to-flow external
+          # @graphql-typegen external
           baz
         `).external
         ).to.throw('missing as clause after external')
@@ -247,7 +247,7 @@ describe(`getCommentDirectives`, function() {
           () =>
             getCommentDirectives(field`
           # blah
-          # @graphql-to-flow external ass
+          # @graphql-typegen external ass
           baz
         `).external
         ).to.throw('invalid token after external: ass')
@@ -255,7 +255,7 @@ describe(`getCommentDirectives`, function() {
       it(`returns identifier from as clause if given`, function() {
         expect(
           getCommentDirectives(field`
-          # @graphql-to-flow external as Foob
+          # @graphql-typegen external as Foob
           baz
         `).external
         ).to.equal('Foob')
@@ -264,7 +264,7 @@ describe(`getCommentDirectives`, function() {
         expect(
           () =>
             getCommentDirectives(field`
-          # @graphql-to-flow external ass
+          # @graphql-typegen external ass
           baz
         `).external
         ).to.throw('invalid token after external: ass')
@@ -273,7 +273,7 @@ describe(`getCommentDirectives`, function() {
         expect(
           () =>
             getCommentDirectives(field`
-          # @graphql-to-flow external as 0foo
+          # @graphql-typegen external as 0foo
           baz
         `).external
         ).to.throw('invalid external as identifier: 0foo')
@@ -282,7 +282,7 @@ describe(`getCommentDirectives`, function() {
         expect(
           () =>
             getCommentDirectives(field`
-          # @graphql-to-flow external as
+          # @graphql-typegen external as
           baz
         `).external
         ).to.throw('missing identifier after external as')
@@ -303,7 +303,7 @@ describe(`getCommentDirectives`, function() {
       it(`returns undefined if no comments are relevant`, function() {
         expect(
           getCommentDirectives(fragment`
-          # @graphql-to-flow inexact
+          # @graphql-typegen inexact
           fragment Foo on Bar {
             baz
           }
@@ -314,7 +314,7 @@ describe(`getCommentDirectives`, function() {
         expect(
           getCommentDirectives(fragment`
           # blah
-          # @graphql-to-flow extract
+          # @graphql-typegen extract
           fragment Foo on Bar {
             baz
           }
@@ -324,7 +324,7 @@ describe(`getCommentDirectives`, function() {
       it(`returns identifier from as clause if given`, function() {
         expect(
           getCommentDirectives(fragment`
-          # @graphql-to-flow extract as Foob
+          # @graphql-typegen extract as Foob
           fragment Foo on Bar {
             baz
           }
@@ -335,7 +335,7 @@ describe(`getCommentDirectives`, function() {
         expect(
           () =>
             getCommentDirectives(fragment`
-          # @graphql-to-flow extract ass
+          # @graphql-typegen extract ass
           fragment Foo on Bar {
             baz
           }
@@ -346,7 +346,7 @@ describe(`getCommentDirectives`, function() {
         expect(
           () =>
             getCommentDirectives(fragment`
-          # @graphql-to-flow extract as 0foo
+          # @graphql-typegen extract as 0foo
           fragment Foo on Bar {
             baz
           }
@@ -361,7 +361,7 @@ describe(`getCommentDirectives`, function() {
       it(`returns undefined if no comments are relevant`, function() {
         expect(
           getCommentDirectives(field`
-          # @graphql-to-flow readOnly
+          # @graphql-typegen readOnly
           baz
         `).extract
         ).to.be.undefined
@@ -370,7 +370,7 @@ describe(`getCommentDirectives`, function() {
         expect(
           getCommentDirectives(field`
           # blah
-          # @graphql-to-flow extract
+          # @graphql-typegen extract
           baz
         `).extract
         ).to.be.true
@@ -378,7 +378,7 @@ describe(`getCommentDirectives`, function() {
       it(`returns identifier from as clause if given`, function() {
         expect(
           getCommentDirectives(field`
-          # @graphql-to-flow extract as Foob
+          # @graphql-typegen extract as Foob
           baz
         `).extract
         ).to.equal('Foob')
@@ -387,7 +387,7 @@ describe(`getCommentDirectives`, function() {
         expect(
           () =>
             getCommentDirectives(field`
-          # @graphql-to-flow extract ass
+          # @graphql-typegen extract ass
           baz
         `).extract
         ).to.throw('invalid token after extract: ass')
@@ -396,7 +396,7 @@ describe(`getCommentDirectives`, function() {
         expect(
           () =>
             getCommentDirectives(field`
-          # @graphql-to-flow extract as 0foo
+          # @graphql-typegen extract as 0foo
           baz
         `).extract
         ).to.throw('invalid extract as identifier: 0foo')
@@ -405,7 +405,7 @@ describe(`getCommentDirectives`, function() {
         expect(
           () =>
             getCommentDirectives(field`
-          # @graphql-to-flow extract as
+          # @graphql-typegen extract as
           baz
         `).extract
         ).to.throw('missing identifier after extract as')

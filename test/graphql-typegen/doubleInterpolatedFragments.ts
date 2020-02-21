@@ -12,7 +12,6 @@ fragment CharacterFields on Character {
 
 const fragment2 = gql\`
 \${fragment}
-# @graphql-to-flow readOnly
 fragment CharacterAndFriends on Character {
   ...CharacterFields
   friends {
@@ -47,7 +46,7 @@ fragment CharacterFields on Character {
 }
 \`
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type CharacterFields = {
   name: string,
   appearsIn: Array<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
@@ -55,7 +54,6 @@ type CharacterFields = {
 
 const fragment2 = gql\`
 \${fragment}
-# @graphql-to-flow readOnly
 fragment CharacterAndFriends on Character {
   ...CharacterFields
   friends {
@@ -64,9 +62,10 @@ fragment CharacterAndFriends on Character {
 }
 \`
 
-// @graphql-to-flow auto-generated
-type CharacterAndFriends = 
-  $ReadOnly<{ friends: ?$ReadOnlyArray<?$ReadOnly<CharacterFields>> }> & $ReadOnly<CharacterFields>
+// @graphql-typegen auto-generated
+type CharacterAndFriends = {
+  friends: ?Array<?CharacterFields>,
+} & CharacterFields
 
 const query = gql\`
 \${fragment2}
@@ -78,9 +77,9 @@ query Test($id: ID!) {
 }
 \`
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryVariables = { id: string }
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryData = { character: ?({ id: string, } & CharacterAndFriends) }
 `

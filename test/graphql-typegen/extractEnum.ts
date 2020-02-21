@@ -5,10 +5,10 @@ import gql from 'graphql-tag'
 
 const query = gql\`
 query Test($id: ID!) {
-  # @graphql-to-flow readOnly
   character(id: $id) {
     id
     name
+    # @graphql-typegen extract
     appearsIn
   }
 }
@@ -22,15 +22,18 @@ export const options = {
 
 export const expected = `
 ${input}
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryVariables = { id: string }
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryData = {
-  character: ?$ReadOnly<{
+  character: ?{
     id: string,
     name: string,
-    appearsIn: $ReadOnlyArray<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
-  }>,
+    appearsIn: Array<?Episode>,
+  }
 }
+
+// @graphql-typegen auto-generated
+type Episode = 'NEWHOPE' | 'EMPIRE' | 'JEDI'
 `

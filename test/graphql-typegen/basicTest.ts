@@ -8,7 +8,6 @@ query Test($id: ID!) {
   character(id: $id) {
     id
     name
-    # @graphql-to-flow extract
     appearsIn
   }
 }
@@ -22,18 +21,15 @@ export const options = {
 
 export const expected = `
 ${input}
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryVariables = { id: string }
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryData = {
   character: ?{
     id: string,
     name: string,
-    appearsIn: Array<?Episode>,
-  }
+    appearsIn: Array<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
+  },
 }
-
-// @graphql-to-flow auto-generated
-type Episode = 'NEWHOPE' | 'EMPIRE' | 'JEDI'
 `

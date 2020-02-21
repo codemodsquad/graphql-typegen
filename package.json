@@ -1,7 +1,7 @@
 {
-  "name": "graphql-to-flow-codemod",
+  "name": "graphql-typegen",
   "version": "0.0.0-development",
-  "description": "generates flow types from gql template string literals",
+  "description": "JSCodeshift transform that inserts Flow types generated from GraphQL documents in template string literals and your GraphQL schema",
   "sideEffects": false,
   "scripts": {
     "lint": "eslint $npm_package_config_lint",
@@ -68,7 +68,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/codemodsquad/graphql-to-flow-codemod.git"
+    "url": "https://github.com/codemodsquad/graphql-typegen.git"
   },
   "keywords": [
     "graphql",
@@ -79,9 +79,9 @@
   "author": "Andy Edwards",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/codemodsquad/graphql-to-flow-codemod/issues"
+    "url": "https://github.com/codemodsquad/graphql-typegen/issues"
   },
-  "homepage": "https://github.com/codemodsquad/graphql-to-flow-codemod#readme",
+  "homepage": "https://github.com/codemodsquad/graphql-typegen#readme",
   "devDependencies": {
     "@babel/cli": "^7.1.5",
     "@babel/core": "^7.1.6",

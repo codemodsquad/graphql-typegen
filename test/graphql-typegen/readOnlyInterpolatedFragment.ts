@@ -4,10 +4,9 @@ export const input = `
 import gql from 'graphql-tag'
 
 const fragment = gql\`
-# @graphql-to-flow extract as CharacterFieldsTest
+# @graphql-typegen readOnly
 fragment CharacterFields on Character {
   name
-  # @graphql-to-flow extract
   appearsIn
 }
 \`
@@ -32,22 +31,18 @@ export const expected = `
 import gql from 'graphql-tag'
 
 const fragment = gql\`
-# @graphql-to-flow extract as CharacterFieldsTest
+# @graphql-typegen readOnly
 fragment CharacterFields on Character {
   name
-  # @graphql-to-flow extract
   appearsIn
 }
 \`
 
-// @graphql-to-flow auto-generated
-type CharacterFieldsTest = {
+// @graphql-typegen auto-generated
+type CharacterFields = $ReadOnly<{
   name: string,
-  appearsIn: Array<?Episode>,
-}
-
-// @graphql-to-flow auto-generated
-type Episode = 'NEWHOPE' | 'EMPIRE' | 'JEDI'
+  appearsIn: $ReadOnlyArray<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
+}>
 
 const query = gql\`
 \${fragment}
@@ -59,9 +54,9 @@ query Test($id: ID!) {
 }
 \`
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryVariables = { id: string }
 
-// @graphql-to-flow auto-generated
-type TestQueryData = { character: ?({ id: string, } & CharacterFieldsTest) }
+// @graphql-typegen auto-generated
+type TestQueryData = { character: ?({ id: string, } & CharacterFields) }
 `

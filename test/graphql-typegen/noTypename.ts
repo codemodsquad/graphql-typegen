@@ -4,7 +4,7 @@ export const input = `
 import gql from 'graphql-tag'
 
 const query = gql\`
-# @graphql-to-flow exact
+# @graphql-typegen noTypename
 query Test($id: ID!) {
   character(id: $id) {
     id
@@ -16,21 +16,21 @@ query Test($id: ID!) {
 `
 
 export const options = {
-  addTypename: false,
+  addTypename: true,
   schemaFile: path.resolve(__dirname, '../../starwars.graphql'),
 }
 
 export const expected = `
 ${input}
-// @graphql-to-flow auto-generated
-type TestQueryVariables = {| id: string |}
+// @graphql-typegen auto-generated
+type TestQueryVariables = { id: string }
 
-// @graphql-to-flow auto-generated
-type TestQueryData = {|
-  character: ?{|
+// @graphql-typegen auto-generated
+type TestQueryData = {
+  character: ?{
     id: string,
     name: string,
     appearsIn: Array<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
-  |},
-|}
+  },
+}
 `

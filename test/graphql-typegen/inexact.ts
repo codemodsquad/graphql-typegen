@@ -4,11 +4,12 @@ export const input = `
 import gql from 'graphql-tag'
 
 const query = gql\`
+# @graphql-typegen inexact
 query Test($id: ID!) {
-  starship(id: $id) {
+  character(id: $id) {
     id
     name
-    coordinates
+    appearsIn
   }
 }
 \`
@@ -21,15 +22,17 @@ export const options = {
 
 export const expected = `
 ${input}
-// @graphql-to-flow auto-generated
-type TestQueryVariables = { id: string }
+// @graphql-typegen auto-generated
+type TestQueryVariables = { id: string, ... }
 
-// @graphql-to-flow auto-generated
+// @graphql-typegen auto-generated
 type TestQueryData = {
-  starship: ?{
+  character: ?{
     id: string,
     name: string,
-    coordinates: ?Array<Array<number>>,
+    appearsIn: Array<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
+    ...
   },
+  ...
 }
 `

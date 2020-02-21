@@ -42,7 +42,7 @@ describe(`getExtractComment`, function() {
     it(`returns null if no comments are relevant`, function() {
       expect(
         getExtractComment(fragment`
-          # @graphql-to-flow test
+          # @graphql-typegen test
           fragment Foo on Bar {
             baz
           }
@@ -53,7 +53,7 @@ describe(`getExtractComment`, function() {
       expect(
         getExtractComment(fragment`
           # blah
-          # @graphql-to-flow extract
+          # @graphql-typegen extract
           fragment Foo on Bar {
             baz
           }
@@ -63,7 +63,7 @@ describe(`getExtractComment`, function() {
     it(`returns identifier from as clause if given`, function() {
       expect(
         getExtractComment(fragment`
-          # @graphql-to-flow extract as Foob
+          # @graphql-typegen extract as Foob
           fragment Foo on Bar {
             baz
           }
@@ -73,7 +73,7 @@ describe(`getExtractComment`, function() {
     it(`throws if invalid token comes after extract`, function() {
       expect(() =>
         getExtractComment(fragment`
-          # @graphql-to-flow extract ass
+          # @graphql-typegen extract ass
           fragment Foo on Bar {
             baz
           }
@@ -83,7 +83,7 @@ describe(`getExtractComment`, function() {
     it(`throws if extract as identifier is invalid`, function() {
       expect(() =>
         getExtractComment(fragment`
-          # @graphql-to-flow extract as 0foo
+          # @graphql-typegen extract as 0foo
           fragment Foo on Bar {
             baz
           }
@@ -98,7 +98,7 @@ describe(`getExtractComment`, function() {
     it(`returns null if no comments are relevant`, function() {
       expect(
         getExtractComment(field`
-          # @graphql-to-flow test
+          # @graphql-typegen test
           baz
         `)
       ).to.be.null
@@ -107,7 +107,7 @@ describe(`getExtractComment`, function() {
       expect(
         getExtractComment(field`
           # blah
-          # @graphql-to-flow extract
+          # @graphql-typegen extract
           baz
         `)
       ).to.be.true
@@ -115,7 +115,7 @@ describe(`getExtractComment`, function() {
     it(`returns identifier from as clause if given`, function() {
       expect(
         getExtractComment(field`
-          # @graphql-to-flow extract as Foob
+          # @graphql-typegen extract as Foob
           baz
         `)
       ).to.equal('Foob')
@@ -123,7 +123,7 @@ describe(`getExtractComment`, function() {
     it(`throws if invalid token comes after extract`, function() {
       expect(() =>
         getExtractComment(field`
-          # @graphql-to-flow extract ass
+          # @graphql-typegen extract ass
           baz
         `)
       ).to.throw('invalid token after extract: ass')
@@ -131,7 +131,7 @@ describe(`getExtractComment`, function() {
     it(`throws if extract as identifier is invalid`, function() {
       expect(() =>
         getExtractComment(field`
-          # @graphql-to-flow extract as 0foo
+          # @graphql-typegen extract as 0foo
           baz
         `)
       ).to.throw('invalid extract as identifier: 0foo')

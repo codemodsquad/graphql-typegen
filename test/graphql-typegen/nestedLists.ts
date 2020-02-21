@@ -4,12 +4,11 @@ export const input = `
 import gql from 'graphql-tag'
 
 const query = gql\`
-# @graphql-to-flow readOnly
 query Test($id: ID!) {
-  character(id: $id) {
+  starship(id: $id) {
     id
     name
-    appearsIn
+    coordinates
   }
 }
 \`
@@ -22,15 +21,15 @@ export const options = {
 
 export const expected = `
 ${input}
-// @graphql-to-flow auto-generated
-type TestQueryVariables = $ReadOnly<{ id: string }>
+// @graphql-typegen auto-generated
+type TestQueryVariables = { id: string }
 
-// @graphql-to-flow auto-generated
-type TestQueryData = $ReadOnly<{
-  character: ?$ReadOnly<{
+// @graphql-typegen auto-generated
+type TestQueryData = {
+  starship: ?{
     id: string,
     name: string,
-    appearsIn: $ReadOnlyArray<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
-  }>,
-}>
+    coordinates: ?Array<Array<number>>,
+  },
+}
 `

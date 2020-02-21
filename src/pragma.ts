@@ -1,1 +1,1 @@
-export const pragma = '@graphql-to-flow'
+export const pragma = '@graphql-typegen'

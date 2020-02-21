@@ -29,7 +29,7 @@ import * as path from 'path'
 
 const { statement } = j.template
 
-const PRAGMA = '@graphql-to-flow'
+const PRAGMA = '@graphql-typegen'
 const AUTO_GENERATED_COMMENT = ` ${PRAGMA} auto-generated`
 
 function regex(
@@ -52,12 +52,12 @@ function typeCast(
   return j.typeCastExpression(node, typeAnnotation)
 }
 
-module.exports = function graphqlToFlow(
+module.exports = function graphqlTypegen(
   { path: file, source: code }: FileInfo,
   { j }: API,
   options: Options
 ): string {
-  const packageConf = pkgConf.sync('graphql-to-flow', {
+  const packageConf = pkgConf.sync('graphql-typegen', {
     cwd: path.dirname(file),
   })
   if (packageConf?.schemaFile) {
