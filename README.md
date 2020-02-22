@@ -31,6 +31,7 @@ JSCodeshift transform that inserts Flow types generated from GraphQL documents i
   - [`external as`](#external-as-)
   - [`extract [as ]`](#extract-as-)
 - [CLI Usage](#cli-usage)
+- [Node.js API](#nodejs-api)
 
 <!-- tocstop -->
 
@@ -726,3 +727,18 @@ type User = {
 ```
 jscodeshift -t path/to/graphql-typegen/graphql-typegen.js src/**/*.js
 ```
+
+# Node.js API
+
+Because `jscodeshift` unfortunately requires transform functions to be sync,
+`graphql-typegen` uses an `execFileSync` hack to synchronously fetch your schema
+from your schema file or server.
+
+If you're calling directly from node, you can bypass this by using `graphql-typegen-async`:
+
+```js
+import graphqlTypegen from 'graphql-typegen/graphql-typegen-async'
+```
+
+It has the same API as a `jscodeshift` transform, except that it returns a `Promise` instead
+of a sync result. Maybe someday `jscodeshift` will support async transforms.
