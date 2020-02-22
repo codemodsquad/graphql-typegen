@@ -1,5 +1,4 @@
 import resolveIdentifier from './precompute/resolveIdentifier'
-import FAIL from './precompute/FAIL'
 import precomputeExpression from './precompute/precomputeExpression'
 import j, {
   TypeAnnotation,
@@ -19,24 +18,16 @@ import addImports from 'jscodeshift-add-imports'
 import generateFlowTypesFromDocument from './generateFlowTypesFromDocument'
 import * as graphql from 'graphql'
 import once from 'lodash/once'
-import { ExpressionKind, FlowTypeKind } from 'ast-types/gen/kinds'
+import { ExpressionKind, FlowTypeKind, PatternKind } from 'ast-types/gen/kinds'
 import { Collection } from 'jscodeshift/src/Collection'
 import pkgConf from 'pkg-conf'
 import { applyConfigDefaults } from './config'
 import { AnalyzedSchema } from './analyzeSchema'
 import * as path from 'path'
+import precomputeError from './precompute/precomputeError'
 
 const PRAGMA = '@graphql-typegen'
 const AUTO_GENERATED_COMMENT = ` ${PRAGMA} auto-generated`
-
-function regex(
-  s: string,
-  rx: RegExp,
-  callback: (match: RegExpExecArray) => any
-): void {
-  const match = rx.exec(s)
-  if (match) callback(match)
-}
 
 function typeCast(
   node: ExpressionKind,
@@ -72,21 +63,19 @@ export default function graphqlTypegenCore(
   const { statement } = j.template
 
   function precomputeExpressionInGQLTemplateLiteral(
-    path: ASTPath<any> | typeof FAIL
-  ): string | number | boolean | null | undefined | typeof FAIL {
-    if (typeof path === 'symbol') {
-      if (path === FAIL) return FAIL
-      throw new Error(`invalid path: ${String(path)}`)
-    }
+    path: ASTPath<any>
+  ): string | number | boolean | null | undefined {
     const { node } = path
+    // istanbul ignore next
     if (!node || !node.type) {
-      return FAIL
+      precomputeError(path)
     }
     switch (node.type) {
       case 'TaggedTemplateExpression':
-        return node.tag.type === 'Identifier' && node.tag.name === tagName
-          ? precomputeGQLTemplateLiteral(path)
-          : FAIL
+        if (node.tag.type === 'Identifier' && node.tag.name === tagName)
+          return precomputeGQLTemplateLiteral(path)
+        precomputeError(path)
+        break
       case 'Identifier':
         return precomputeExpressionInGQLTemplateLiteral(resolveIdentifier(path))
     }
@@ -95,7 +84,7 @@ export default function graphqlTypegenCore(
 
   function precomputeGQLTemplateLiteral(
     path: ASTPath<TaggedTemplateExpression>
-  ): string | typeof FAIL {
+  ): string {
     const { quasis } = path.node.quasi
     if (quasis.length === 1) return quasis[0].value.cooked
 
@@ -106,7 +95,6 @@ export default function graphqlTypegenCore(
       const expr = precomputeExpressionInGQLTemplateLiteral(
         path.get('quasi', 'expressions', i)
       )
-      if (expr === FAIL) return FAIL
       parts.push(expr)
       i++
     }
@@ -168,13 +156,7 @@ export default function graphqlTypegenCore(
   const findQueryPaths = (root: Collection<any>): ASTPath<any>[] => [
     ...root
       .find(j.TaggedTemplateExpression, { tag: { name: tagName } })
-      .paths()
-      .filter((path: ASTPath<TaggedTemplateExpression>): boolean => {
-        for (const pragma of getPragmas(path)) {
-          if (pragma.trim() === 'ignore') return false
-        }
-        return true
-      }),
+      .paths(),
   ]
 
   const queryPaths = findQueryPaths(root)
@@ -203,11 +185,13 @@ export default function graphqlTypegenCore(
       statement`import {useSubscription} from '@apollo/react-hooks'`
     ).useSubscription
 
-  const hasApolloReactHooks =
-    root
-      .find(j.ImportDeclaration, { source: { value: '@apollo/react-hooks' } })
-      .size() > 0
-  const apolloPkg = hasApolloReactHooks ? '@apollo/react-hooks' : 'react-apollo'
+  const apolloPkg = [
+    '@apollo/react-hooks',
+    '@apollo/react-components',
+    'react-apollo',
+  ].find(pkg =>
+    root.find(j.ImportDeclaration, { source: { value: pkg } }).size()
+  )
 
   const addQueryRenderProps = once(
     () =>
@@ -272,12 +256,7 @@ export default function graphqlTypegenCore(
         }
       },
     })
-    const ignore = new Set()
-    for (const pragma of getPragmas(path)) {
-      regex(pragma, /ignore:\s*(.*)/m, m =>
-        m[1].split(/\s*,\s*/g).forEach(t => ignore.add(t))
-      )
-    }
+
     const {
       statements: types,
       generatedTypes,
@@ -295,22 +274,32 @@ export default function graphqlTypegenCore(
     if (imports.length) addImports(root, imports)
 
     for (const type of types) {
-      if (ignore.has(type.id.name)) continue
       if (!type.comments) type.comments = []
       type.comments.push(j.commentLine(AUTO_GENERATED_COMMENT))
       const {
         id: { name },
       } = type
-      const existing = root.find(j.TypeAlias, { id: { name } })
+      const existing = root.find(j.TypeAlias, { id: { name } }).at(0)
       const parent = j(path).closest(j.ExportNamedDeclaration)
       if (existing.size() > 0) {
-        existing.at(0).replaceWith(type)
+        existing.replaceWith(type)
         addedStatements.add(type)
+        const parentExport = existing
+          .closest(j.ExportNamedDeclaration)
+          .nodes()[0]
+        if (parentExport) {
+          // without this, output is "export type type ..."
+          delete (parentExport as any).exportKind
+          addedStatements.add(parentExport)
+          parentExport.comments = type.comments
+          type.comments = []
+        }
       } else if (parent.size()) {
         const exportDecl = j.exportNamedDeclaration(type, [], null)
         exportDecl.comments = type.comments
         type.comments = []
         parent.at(0).insertAfter(exportDecl)
+        addedStatements.add(type)
         addedStatements.add(exportDecl)
       } else {
         j(path)
@@ -325,10 +314,14 @@ export default function graphqlTypegenCore(
     // Add types to <Query> element child functions
 
     if (queryNames.length) {
-      const { Query } = findImports(
-        root,
-        statement`import {Query} from 'react-apollo'`
-      )
+      const Query =
+        findImports(root, statement`import {Query} from 'react-apollo'`)
+          .Query ||
+        findImports(
+          root,
+          statement`import {Query} from '@apollo/react-components'`
+        ).Query
+
       root
         .find(j.JSXOpeningElement, { name: { name: Query } })
         .forEach((path: ASTPath<JSXOpeningElement>): void => {
@@ -366,16 +359,21 @@ export default function graphqlTypegenCore(
           const elementPath = path.parentPath
           const childFunction = getChildFunction(elementPath)
           if (childFunction) {
-            const firstParam = childFunction.get('params', 0)
+            const firstParam: ASTPath<PatternKind> = childFunction.get(
+              'params',
+              0
+            )
             const { data, variables } = onlyValue(generatedTypes.query) || {}
             if (!data) return
-            if (firstParam && firstParam.node.type === 'Identifier') {
-              const newIdentifier = j.identifier(firstParam.node.name)
-              newIdentifier.typeAnnotation = queryRenderPropsAnnotation(
+            if (
+              firstParam.node &&
+              (firstParam.node.type === 'Identifier' ||
+                firstParam.node.type === 'ObjectPattern')
+            ) {
+              firstParam.node.typeAnnotation = queryRenderPropsAnnotation(
                 data,
                 variables
               )
-              firstParam.replace(newIdentifier)
             }
           }
         })
@@ -385,10 +383,13 @@ export default function graphqlTypegenCore(
     // Add types to <Mutation> element child functions
 
     if (mutationNames.length) {
-      const { Mutation } = findImports(
-        root,
-        statement`import {Mutation} from 'react-apollo'`
-      )
+      const Mutation =
+        findImports(root, statement`import {Mutation} from 'react-apollo'`)
+          .Mutation ||
+        findImports(
+          root,
+          statement`import {Mutation} from '@apollo/react-components'`
+        ).Mutation
       root
         .find(j.JSXOpeningElement, { name: { name: Mutation } })
         .forEach((path: ASTPath<JSXOpeningElement>): void => {
@@ -408,14 +409,12 @@ export default function graphqlTypegenCore(
               onlyValue(generatedTypes.mutation) || {}
             if (!mutationFunction) return
             if (firstParam && firstParam.node.type === 'Identifier') {
-              const newIdentifier = j.identifier(firstParam.node.name)
-              newIdentifier.typeAnnotation = j.typeAnnotation(
+              firstParam.node.typeAnnotation = j.typeAnnotation(
                 j.genericTypeAnnotation(
                   j.identifier(mutationFunction.id.name),
                   null
                 )
               )
-              firstParam.replace(newIdentifier)
             }
           }
         })
@@ -615,18 +614,4 @@ function getChildFunction(elementPath: ASTPath<any>): ASTPath<any> | null {
     return null
   }
   return null
-}
-
-function* getPragmas(path: ASTPath<any> | null | undefined): Iterable<string> {
-  while (path && path.value && path.value.type !== 'Program') {
-    const { comments } = path.value
-    if (comments) {
-      for (const comment of comments) {
-        const PRAGMA_REGEX = new RegExp(`^\\s*${PRAGMA}\\s+(.+)`, 'mg')
-        const match = PRAGMA_REGEX.exec(comment.value)
-        if (match) yield match[1]
-      }
-    }
-    path = path.parent
-  }
 }

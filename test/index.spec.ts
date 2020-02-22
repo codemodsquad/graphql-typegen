@@ -5,9 +5,11 @@ import * as fs from 'fs'
 import * as path from 'path'
 import testFixtures from './testFixtures'
 
-const dirs = fs.readdirSync(__dirname)
-for (const dir of dirs) {
-  if (fs.statSync(path.join(__dirname, dir)).isDirectory()) {
+for (const dir of fs.readdirSync(__dirname)) {
+  if (
+    dir !== 'fakePackage' &&
+    fs.statSync(path.join(__dirname, dir)).isDirectory()
+  ) {
     describe(dir, function() {
       this.timeout(10000)
       testFixtures({

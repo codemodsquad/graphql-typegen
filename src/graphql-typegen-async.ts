@@ -1,9 +1,9 @@
 import { FileInfo, API, Options } from 'jscodeshift'
 import pkgConf from 'pkg-conf'
-import { applyConfigDefaults } from './config'
-import analyzeSchema from './analyzeSchema'
+import { applyConfigDefaults } from './internal/config'
+import analyzeSchema from './internal/analyzeSchema'
 import * as path from 'path'
-import graphqlTypegenCore from './graphqlTypegenCore'
+import graphqlTypegenCore from './internal/graphqlTypegenCore'
 
 module.exports = async function graphqlTypegenAsync(
   fileInfo: FileInfo,

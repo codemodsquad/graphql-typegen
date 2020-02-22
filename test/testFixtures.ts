@@ -104,6 +104,10 @@ export default function textFixtures({
           )
         if (fixture.expectedError) {
           expect(doTransform).to.throw(fixture.expectedError)
+        } else if (fixture.expectedRejection) {
+          await expect(doTransform()).to.be.rejectedWith(
+            fixture.expectedRejection
+          )
         } else {
           const result = await doTransform()
           if (!result) expect(result).to.equal(fixture.expected)

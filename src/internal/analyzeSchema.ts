@@ -367,7 +367,7 @@ export default async function analyzeSchema({
         })
     ).body
   } else {
-    throw new Error('schema or server must be provided')
+    throw new Error('schemaFile or server must be configured')
   }
   const { data } = result
   if (!data) throw new Error('failed to get introspection query data')
