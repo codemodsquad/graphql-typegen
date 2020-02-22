@@ -404,10 +404,14 @@ export function analyzeSchemaSync(options: {
   }
 
   const schema = flatted.parse(
-    execFileSync(__filename, [JSON.stringify(options)], {
-      encoding: 'utf8',
-      maxBuffer: 256 * 1024 * 1024,
-    })
+    execFileSync(
+      require.resolve('./runAnalyzeSchemaSync'),
+      [JSON.stringify({ ...options, target: __filename })],
+      {
+        encoding: 'utf8',
+        maxBuffer: 256 * 1024 * 1024,
+      }
+    )
   )
   if (file) {
     const latest = fs.statSync(file).mtime
@@ -415,16 +419,4 @@ export function analyzeSchemaSync(options: {
     schemaCache.set(file, schema)
   }
   return schema
-}
-
-if (!module.parent) {
-  analyzeSchema(JSON.parse(process.argv[2])).then(
-    (result: any) => {
-      process.stdout.write(flatted.stringify(result), () => process.exit(0))
-    },
-    (error: Error) => {
-      console.error(error.stack) // eslint-disable-line no-console
-      process.exit(1)
-    }
-  )
 }
