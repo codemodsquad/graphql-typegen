@@ -12,6 +12,7 @@ import j, {
   FileInfo,
   API,
   Options,
+  TypeParameterInstantiation,
 } from 'jscodeshift'
 import findImports from 'jscodeshift-find-imports'
 import addImports from 'jscodeshift-add-imports'
@@ -40,6 +41,17 @@ function typeCast(
   return j.typeCastExpression(node, typeAnnotation)
 }
 
+function makeFunctionTypeArguments(
+  data: TypeAlias,
+  variables?: TypeAlias | null | undefined
+): TypeParameterInstantiation {
+  const params = [j.genericTypeAnnotation(j.identifier(data.id.name), null)]
+  if (variables) {
+    params.push(j.genericTypeAnnotation(j.identifier(variables.id.name), null))
+  }
+  return j.typeParameterInstantiation(params)
+}
+
 export default function graphqlTypegenCore(
   { path: file, source: code }: FileInfo,
   { j }: API,
@@ -57,7 +69,7 @@ export default function graphqlTypegenCore(
     )
   }
   const config = applyConfigDefaults(Object.assign(packageConf, options))
-  const { tagName = 'gql' } = config
+  const { tagName = 'gql', useFunctionTypeArguments } = config
 
   const root = j(code)
   const { statement } = j.template
@@ -437,38 +449,47 @@ export default function graphqlTypegenCore(
         })
         .forEach((path: ASTPath<VariableDeclarator>): void => {
           const { data, variables } = onlyValue(generatedTypes.query) || {}
-          if (!data) return
-          if (
-            path.node.id.type === 'Identifier' ||
-            path.node.id.type === 'ObjectPattern'
-          ) {
-            path.node.id.typeAnnotation = queryRenderPropsAnnotation(
+          if (!data || path.node.init?.type !== 'CallExpression') return
+          if (useFunctionTypeArguments) {
+            ;(path.node.init as any).typeArguments = makeFunctionTypeArguments(
               data,
               variables
             )
-          }
-          if (path.node.init?.type !== 'CallExpression') return
-          const options = path.node.init.arguments[1]
-          if (variables && options && options.type === 'ObjectExpression') {
-            const variablesProp = options.properties.find(
-              p =>
-                p.type !== 'SpreadProperty' &&
-                p.type !== 'SpreadElement' &&
-                p.key.type === 'Identifier' &&
-                p.key.name === 'variables'
-            )
+          } else {
             if (
-              variablesProp &&
-              variablesProp.type !== 'ObjectMethod' &&
-              variablesProp.type !== 'SpreadElement' &&
-              variablesProp.type !== 'SpreadProperty'
+              path.node.id.type === 'Identifier' ||
+              path.node.id.type === 'ObjectPattern'
             ) {
-              variablesProp.value = typeCast(
-                variablesProp.value as ExpressionKind,
-                j.typeAnnotation(
-                  j.genericTypeAnnotation(j.identifier(variables.id.name), null)
-                )
+              path.node.id.typeAnnotation = queryRenderPropsAnnotation(
+                data,
+                variables
               )
+            }
+            const options = path.node.init.arguments[1]
+            if (variables && options && options.type === 'ObjectExpression') {
+              const variablesProp = options.properties.find(
+                p =>
+                  p.type !== 'SpreadProperty' &&
+                  p.type !== 'SpreadElement' &&
+                  p.key.type === 'Identifier' &&
+                  p.key.name === 'variables'
+              )
+              if (
+                variablesProp &&
+                variablesProp.type !== 'ObjectMethod' &&
+                variablesProp.type !== 'SpreadElement' &&
+                variablesProp.type !== 'SpreadProperty'
+              ) {
+                variablesProp.value = typeCast(
+                  variablesProp.value as ExpressionKind,
+                  j.typeAnnotation(
+                    j.genericTypeAnnotation(
+                      j.identifier(variables.id.name),
+                      null
+                    )
+                  )
+                )
+              }
             }
           }
         })
@@ -490,25 +511,32 @@ export default function graphqlTypegenCore(
           },
         })
         .forEach((path: ASTPath<VariableDeclarator>): void => {
-          const { data, mutationFunction } =
+          const { data, variables, mutationFunction } =
             onlyValue(generatedTypes.mutation) || {}
-          if (!mutationFunction) return
+          if (!mutationFunction || !data) return
           const {
             node: { id },
           } = path
-          if (id.type !== 'ArrayPattern' && id.type !== 'Identifier') return
-          const tupleTypes: FlowTypeKind[] = [
-            j.genericTypeAnnotation(
-              j.identifier(mutationFunction.id.name),
-              null
-            ),
-          ]
-          if (data && id.type === 'ArrayPattern' && id.elements.length > 1)
-            tupleTypes.push(mutationResultAnnotation(data).typeAnnotation)
-            // https://github.com/benjamn/ast-types/issues/372
-          ;(id as any).typeAnnotation = j.typeAnnotation(
-            j.tupleTypeAnnotation(tupleTypes)
-          )
+          if (useFunctionTypeArguments) {
+            ;(path.node.init as any).typeArguments = makeFunctionTypeArguments(
+              data,
+              variables
+            )
+          } else {
+            if (id.type !== 'ArrayPattern' && id.type !== 'Identifier') return
+            const tupleTypes: FlowTypeKind[] = [
+              j.genericTypeAnnotation(
+                j.identifier(mutationFunction.id.name),
+                null
+              ),
+            ]
+            if (data && id.type === 'ArrayPattern' && id.elements.length > 1)
+              tupleTypes.push(mutationResultAnnotation(data).typeAnnotation)
+              // https://github.com/benjamn/ast-types/issues/372
+            ;(id as any).typeAnnotation = j.typeAnnotation(
+              j.tupleTypeAnnotation(tupleTypes)
+            )
+          }
         })
     }
 
@@ -531,37 +559,47 @@ export default function graphqlTypegenCore(
           const { data, variables } =
             onlyValue(generatedTypes.subscription) || {}
           if (!data) return
-          if (
-            path.node.id.type === 'Identifier' ||
-            path.node.id.type === 'ObjectPattern'
-          ) {
-            path.node.id.typeAnnotation = subscriptionResultAnnotation(
+          if (useFunctionTypeArguments) {
+            ;(path.node.init as any).typeArguments = makeFunctionTypeArguments(
               data,
               variables
             )
-          }
-          if (path.node.init?.type !== 'CallExpression') return
-          const options = path.node.init.arguments[1]
-          if (variables && options && options.type === 'ObjectExpression') {
-            const variablesProp = options.properties.find(
-              p =>
-                p.type !== 'SpreadElement' &&
-                p.type !== 'SpreadProperty' &&
-                p.key.type === 'Identifier' &&
-                p.key.name === 'variables'
-            )
+          } else {
             if (
-              variablesProp &&
-              variablesProp.type !== 'SpreadElement' &&
-              variablesProp.type !== 'SpreadProperty' &&
-              variablesProp.type !== 'ObjectMethod'
+              path.node.id.type === 'Identifier' ||
+              path.node.id.type === 'ObjectPattern'
             ) {
-              variablesProp.value = typeCast(
-                variablesProp.value as ExpressionKind,
-                j.typeAnnotation(
-                  j.genericTypeAnnotation(j.identifier(variables.id.name), null)
-                )
+              path.node.id.typeAnnotation = subscriptionResultAnnotation(
+                data,
+                variables
               )
+            }
+            if (path.node.init?.type !== 'CallExpression') return
+            const options = path.node.init.arguments[1]
+            if (variables && options && options.type === 'ObjectExpression') {
+              const variablesProp = options.properties.find(
+                p =>
+                  p.type !== 'SpreadElement' &&
+                  p.type !== 'SpreadProperty' &&
+                  p.key.type === 'Identifier' &&
+                  p.key.name === 'variables'
+              )
+              if (
+                variablesProp &&
+                variablesProp.type !== 'SpreadElement' &&
+                variablesProp.type !== 'SpreadProperty' &&
+                variablesProp.type !== 'ObjectMethod'
+              ) {
+                variablesProp.value = typeCast(
+                  variablesProp.value as ExpressionKind,
+                  j.typeAnnotation(
+                    j.genericTypeAnnotation(
+                      j.identifier(variables.id.name),
+                      null
+                    )
+                  )
+                )
+              }
             }
           }
         })

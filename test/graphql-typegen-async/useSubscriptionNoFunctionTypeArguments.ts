@@ -1,7 +1,6 @@
 import * as path from 'path'
 
 export const input = `
-// @flow
 import * as React from 'react'
 import { useSubscription } from '@apollo/react-hooks'
 import gql from 'graphql-tag'
@@ -29,13 +28,13 @@ const Comp = ({episode}: {episode: Episode}): React.Node => {
 
 export const options = {
   addTypename: false,
+  useFunctionTypeArguments: false,
   schemaFile: path.resolve(__dirname, '../../starwars.graphql'),
 }
 
 export const expected = `
-// @flow
 import * as React from 'react'
-import { useSubscription } from '@apollo/react-hooks'
+import { useSubscription, type SubscriptionResult } from '@apollo/react-hooks'
 import gql from 'graphql-tag'
 
 const subscription = gql\`
@@ -67,11 +66,12 @@ type TestSubscriptionData = {
 }
 
 const Comp = ({episode}: {episode: Episode}): React.Node => {
-  const data = useSubscription<TestSubscriptionData, TestSubscriptionVariables>(
-    subscription, {
-      variables: { episode }
-    }
-  )
+  const data: SubscriptionResult<
+    TestSubscriptionData,
+    TestSubscriptionVariables
+  > = useSubscription(subscription, {
+    variables: ({ episode }: TestSubscriptionVariables),
+  })
   return <div />
 }
 `

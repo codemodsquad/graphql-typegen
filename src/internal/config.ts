@@ -26,6 +26,18 @@ export type Config = {
    * Which Flow object type to output
    */
   objectType?: ObjectType
+  /**
+   * Whether to use function type arguments
+   *
+   * if true:
+   *
+   *   const data = useQuery<QueryData, QueryVariables>(query, {variables: {id}})
+   *
+   * if false:
+   *
+   *   const data: QueryRenderProps<QueryData, QueryVariables> = useQuery(query, {variables: {id}})
+   */
+  useFunctionTypeArguments?: boolean
 }
 
 export type DefaultedConfig = {
@@ -54,6 +66,18 @@ export type DefaultedConfig = {
    * Which Flow object type to output
    */
   objectType: ObjectType
+  /**
+   * Whether to use function type arguments
+   *
+   * if true:
+   *
+   *   const data = useQuery<QueryData, QueryVariables>(query, {variables: {id}})
+   *
+   * if false:
+   *
+   *   const data: QueryRenderProps<QueryData, QueryVariables> = useQuery(query, {variables: {id}})
+   */
+  useFunctionTypeArguments?: boolean
 }
 
 export function applyConfigDefaults(config: Config): DefaultedConfig {
@@ -62,13 +86,23 @@ export function applyConfigDefaults(config: Config): DefaultedConfig {
   const addTypename = config.addTypename ?? true
   const useReadOnlyTypes = config.useReadOnlyTypes ?? false
   const objectType = config.objectType || 'ambiguous'
+  const useFunctionTypeArguments = config.useFunctionTypeArguments ?? true
 
-  return {
+  const result = {
     schemaFile,
     server,
     tagName,
     addTypename,
     useReadOnlyTypes,
     objectType,
+    useFunctionTypeArguments,
   }
+
+  for (const key in config) {
+    if (config.hasOwnProperty(key) && !result.hasOwnProperty(key)) {
+      throw new Error(`invalid config option: ${key}`)
+    }
+  }
+
+  return result
 }

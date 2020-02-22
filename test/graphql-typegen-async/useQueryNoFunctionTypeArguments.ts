@@ -28,13 +28,14 @@ const Comp = ({id: string}): React.Node => {
 
 export const options = {
   addTypename: false,
+  useFunctionTypeArguments: false,
   schemaFile: path.resolve(__dirname, '../../starwars.graphql'),
 }
 
 export const expected = `
 // @flow
 import * as React from 'react'
-import { useQuery } from '@apollo/react-hooks'
+import { useQuery, type QueryRenderProps } from '@apollo/react-hooks'
 import gql from 'graphql-tag'
 
 const query = gql\`
@@ -60,8 +61,8 @@ type TestQueryData = {
 }
 
 const Comp = ({id: string}): React.Node => {
-  const {loading, error, data} = useQuery<TestQueryData, TestQueryVariables>(query, {
-    variables: {id},
+  const {loading, error, data}: QueryRenderProps<TestQueryData, TestQueryVariables> = useQuery(query, {
+    variables: ({id}: TestQueryVariables),
   })
   return <div />
 }

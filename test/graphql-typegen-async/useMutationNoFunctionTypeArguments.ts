@@ -26,6 +26,7 @@ const Comp = ({id: string}): React.Node => {
 
 export const options = {
   addTypename: false,
+  useFunctionTypeArguments: false,
   schemaFile: path.resolve(__dirname, '../../starwars.graphql'),
 }
 
@@ -75,7 +76,7 @@ type CreateReviewMutationData = {
 }
 
 const Comp = ({id: string}): React.Node => {
-  const [createReview] = useMutation<CreateReviewMutationData, CreateReviewMutationVariables>(mutation)
+  const [createReview]: [CreateReviewMutationFunction] = useMutation(mutation)
   return <div />
 }
 `

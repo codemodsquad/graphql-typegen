@@ -20,12 +20,14 @@ JSCodeshift transform that inserts Flow types generated from GraphQL documents i
   - [`graphql-codegen` outputs messy types for documents](#graphql-codegen-outputs-messy-types-for-documents)
   - [I want to extract parts of the query with their own type aliases](#i-want-to-extract-parts-of-the-query-with-their-own-type-aliases)
   - [Interpolation in GraphQL tagged template literals](#interpolation-in-graphql-tagged-template-literals)
-  - [Automatically adding type annotations to `useQuery`, `useMutation`, and `useSubscription` hooks](#automatically-adding-type-annotations-to-usequery-usemutation-and-usesubscription-hooks)
+  - [Automatically adding type annotations to `Query`, `Mutation`, `useQuery`, `useMutation`, and `useSubscription`](#automatically-adding-type-annotations-to-query-mutation-usequery-usemutation-and-usesubscription)
 - [Configuration](#configuration)
   - [`schemaFile` / `server`](#schemafile--server)
+  - [`tagName` (default: `gql`)](#tagname-default-gql)
   - [`addTypename` (default: `true`)](#addtypename-default-true)
   - [`objectType` (default: `ambiguous`)](#objecttype-default-ambiguous)
   - [`useReadOnlyTypes` (default: `false`)](#usereadonlytypes-default-false)
+  - [`useFunctionTypeArguments` (default: `true`)](#usefunctiontypearguments-default-true)
   - [`external as`](#external-as-)
   - [`extract [as ]`](#extract-as-)
 - [CLI Usage](#cli-usage)
@@ -376,7 +378,7 @@ type UpdateUserMutationVariables = {
 }
 ```
 
-## Automatically adding type annotations to `useQuery`, `useMutation`, and `useSubscription` hooks
+## Automatically adding type annotations to `Query`, `Mutation`, `useQuery`, `useMutation`, and `useSubscription`
 
 `graphql-typegen` will analyze all calls to these hooks and add the correct type annotations:
 
@@ -451,6 +453,18 @@ Or
 ```
   "graphql-typegen": {
     "server": "http://localhost:4000/graphql"
+  }
+```
+
+## `tagName` (default: `gql`)
+
+Name of the template literal tag used to identify template literals containing GraphQL queries in Javascript/Typescript code
+
+Configure this in your `package.json`:
+
+```
+  "graphql-typegen": {
+    "tagName": "gql"
   }
 ```
 
@@ -574,6 +588,43 @@ const query = gql`
     }
   }
 `
+```
+
+## `useFunctionTypeArguments` (default: `true`)
+
+Whether to annotate `useQuery`, `useMutation` and `useSubscription` calls with type arguments,
+or annotate the input variables and output data.
+
+Configure this in your `package.json`:
+
+```
+  "graphql-typegen": {
+    "useFunctionTypeArguments": false
+  }
+```
+
+### When `true` (default)
+
+Adds `<QueryData, QueryVariables>` to `useQuery`:
+
+```js
+const {loading, error, data} = useQuery<QueryData, QueryVariables>(query, {
+  variables: {id}
+})
+```
+
+### When `false`:
+
+Annotates this way:
+
+```js
+const {
+  loading,
+  error,
+  data,
+}: QueryRenderProps<QueryData, QueryVariables> = useQuery(query, {
+  variables: ({ id }: QueryVariables),
+})
 ```
 
 ## `external as <type annotation or import statement>`

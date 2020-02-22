@@ -40,6 +40,7 @@ const Comp = ({episode}: {episode: Episode}): React.Node => {
 
 export const options = {
   addTypename: false,
+  useFunctionTypeArguments: false,
   schemaFile: path.resolve(__dirname, '../../starwars.graphql'),
 }
 
