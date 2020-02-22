@@ -14,6 +14,8 @@ const typesQuery = gql`
   fragment typeInfo on __Type {
     name
     kind
+    # Fetch really deep just in case someone is doing something like [[[Float!]!]!]!...
+    # Haven't devised a plan to deal with arbitrarily deep types yet
     ofType {
       name
       kind
@@ -22,15 +24,26 @@ const typesQuery = gql`
         kind
         ofType {
           name
-          # TODO: fetch as deep as necessary
-          #   kind
-          #   ofType {
-          #     name
-          #     kind
-          #     ofType {
-          #       name
-          #     }
-          #   }
+          kind
+          ofType {
+            name
+            kind
+            ofType {
+              name
+              kind
+              ofType {
+                name
+                kind
+                ofType {
+                  name
+                  kind
+                  ofType {
+                    name
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -44,6 +57,13 @@ const typesQuery = gql`
         enumValues {
           name
           description
+        }
+        interfaces {
+          name
+          description
+        }
+        possibleTypes {
+          ...typeInfo
         }
         fields {
           name
@@ -137,6 +157,8 @@ export type IntrospectionType = {
   fields?: IntrospectionField[] | null
   inputFields?: IntrospectionInputField[] | null
   enumValues?: EnumValue[] | null
+  interfaces?: IntrospectionType[] | null
+  possibleTypes?: IntrospectionType[] | null
 }
 
 export type AnalyzedType = {
@@ -149,6 +171,8 @@ export type AnalyzedType = {
   enumValues?: EnumValue[] | null
   parents?: Array<AnalyzedField | AnalyzedInputField>
   config?: ConfigDirectives
+  interfaces?: AnalyzedType[] | null
+  possibleTypes?: AnalyzedType[] | null
 }
 
 function analyzeTypes(
@@ -239,6 +263,8 @@ function analyzeTypes(
     fields,
     inputFields,
     enumValues,
+    interfaces,
+    possibleTypes,
   }: IntrospectionType): AnalyzedType {
     return {
       name,
@@ -251,6 +277,12 @@ function analyzeTypes(
         : null,
       enumValues,
       config: getDescriptionDirectives(description),
+      interfaces: interfaces
+        ? interfaces.map(iface => convertIntrospectionType(iface))
+        : null,
+      possibleTypes: possibleTypes
+        ? possibleTypes.map(type => convertIntrospectionType(type))
+        : null,
     }
   }
 
@@ -278,7 +310,13 @@ function analyzeTypes(
   }
   for (const name in types) {
     const type = types[name]
-    const { fields, inputFields } = type
+    const { fields, inputFields, interfaces, possibleTypes } = type
+    if (interfaces) {
+      type.interfaces = interfaces.map(type => resolveType(type))
+    }
+    if (possibleTypes) {
+      type.possibleTypes = possibleTypes.map(type => resolveType(type))
+    }
     if (fields) {
       for (const name in fields) {
         const field = fields[name]

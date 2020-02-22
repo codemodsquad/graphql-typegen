@@ -18,12 +18,14 @@ import {
   GenericTypeAnnotation,
   ImportDeclaration,
   JSCodeshift,
+  ObjectTypeSpreadProperty,
 } from 'jscodeshift'
 import { FlowTypeKind } from 'ast-types/gen/kinds'
 import { Config, applyConfigDefaults, ObjectType } from './config'
 import { ConfigDirectives, External } from './getConfigDirectives'
 import getCommentDirectives from './getCommentDirectives'
 import readOnlyType from './readOnlyType'
+import simplifyIntersection from './simplifyIntersection'
 
 type GeneratedQueryType = {
   variables?: TypeAlias
@@ -371,21 +373,316 @@ export default function graphqlToFlow({
         return j.stringTypeAnnotation()
     }
     const type = types[name]
+
+    const { external } = config
+    if (external) return getExternalType(external)
+    let { extract: as } = config
+    if (as === true) as = name
+
+    if (type.kind === graphql.TypeKind.ENUM) {
+      const { enumValues } = type
+      if (!enumValues) {
+        throw new Error('unexpected: ENUM type missing enumValues')
+      }
+      return extractIfNecessary(
+        j.unionTypeAnnotation(
+          enumValues.map((value: EnumValue) =>
+            j.stringLiteralTypeAnnotation(value.name, value.name)
+          )
+        ),
+        as
+      )
+    }
     config = getCombinedConfig(
       { external: null, extract: null },
       type?.config,
       config
     )
-    const { external } = config
-    if (external) return getExternalType(external)
-    let { extract: as } = config
-    if (as === true) as = name
     if (type && type.inputFields)
       return extractIfNecessary(convertInputType(type, config), as)
     return extractIfNecessary(j.mixedTypeAnnotation(), as)
   }
 
-  function convertSelectionSet(
+  function getFragmentType(fragmentName: string): AnalyzedType {
+    for (const def of document.definitions) {
+      if (
+        def.kind === 'FragmentDefinition' &&
+        def.name.value === fragmentName
+      ) {
+        const typeName = def.typeCondition.name.value
+        const type = types[typeName]
+        if (!type) {
+          throw new Error(`failed to find type: ${typeName}`)
+        }
+        return type
+      }
+    }
+    throw new Error(`failed to find fragment: ${fragmentName}`)
+  }
+
+  function convertUnionSelectionSet(
+    selectionSet: graphql.SelectionSetNode,
+    type: AnalyzedType,
+    config: ConfigDirectives
+  ): FlowTypeKind {
+    config = getCombinedConfig(config, type.config)
+    const { selections } = selectionSet
+
+    const { possibleTypes } = type
+    if (!possibleTypes) {
+      throw new Error(`missing possibleTypes for union type: ${type.name}`)
+    }
+    const unions = []
+    for (const possibleType of possibleTypes) {
+      const applicableSelections = selections.filter(
+        (selection: graphql.SelectionNode): boolean => {
+          let selectionName: string
+          switch (selection.kind) {
+            case 'FragmentSpread': {
+              selectionName = getFragmentType(selection.name.value).name
+              break
+            }
+            case 'InlineFragment': {
+              const { typeCondition } = selection
+              if (!typeCondition) return true
+              selectionName = typeCondition.name.value
+              break
+            }
+            default:
+              return false
+          }
+          return (
+            possibleType.name === selectionName ||
+            (possibleType.interfaces || []).find(
+              t => t.name === selectionName
+            ) != null
+          )
+        }
+      )
+      unions.push(
+        convertSelectionSet(
+          {
+            kind: 'SelectionSet',
+            selections: applicableSelections,
+          },
+          possibleType,
+          config
+        )
+      )
+    }
+    return j.unionTypeAnnotation(unions)
+  }
+
+  function convertInterfaceSelectionSet(
+    selectionSet: graphql.SelectionSetNode,
+    type: AnalyzedType,
+    config: ConfigDirectives
+  ): FlowTypeKind {
+    config = getCombinedConfig(config, type.config)
+    const { selections } = selectionSet
+
+    const { possibleTypes } = type
+    if (!possibleTypes) {
+      throw new Error(`missing possibleTypes for union type: ${type.name}`)
+    }
+    const foundTypes = possibleTypes.filter(possibleType =>
+      selections.find((selection: graphql.SelectionNode): boolean => {
+        let selectionName: string
+        switch (selection.kind) {
+          case 'FragmentSpread': {
+            selectionName = getFragmentType(selection.name.value).name
+            break
+          }
+          case 'InlineFragment': {
+            const { typeCondition } = selection
+            if (!typeCondition) return false
+            selectionName = typeCondition.name.value
+            break
+          }
+          default:
+            return false
+        }
+        return possibleType.name === selectionName
+      })
+    )
+    const restTypes = new Set(possibleTypes)
+    foundTypes.forEach(type => restTypes.delete(type))
+
+    const unions = []
+    for (const possibleType of foundTypes) {
+      const applicableSelections = selections.filter(
+        (selection: graphql.SelectionNode): boolean => {
+          let selectionName: string
+          switch (selection.kind) {
+            case 'Field':
+              return true
+            case 'FragmentSpread': {
+              selectionName = getFragmentType(selection.name.value).name
+              break
+            }
+            case 'InlineFragment': {
+              const { typeCondition } = selection
+              if (!typeCondition) return true
+              selectionName = typeCondition.name.value
+              break
+            }
+            default:
+              return false
+          }
+          return possibleType.name === selectionName
+        }
+      )
+      unions.push(
+        convertSelectionSet(
+          {
+            kind: 'SelectionSet',
+            selections: applicableSelections,
+          },
+          possibleType,
+          config
+        )
+      )
+    }
+    if (restTypes.size) {
+      const applicableSelections = selections.filter(
+        (selection: graphql.SelectionNode): boolean => {
+          switch (selection.kind) {
+            case 'Field':
+              return true
+            case 'InlineFragment':
+              return (
+                !selection.typeCondition ||
+                selection.typeCondition.name.value === type.name
+              )
+            case 'FragmentSpread':
+              return getFragmentType(selection.name.value).name === type.name
+          }
+        }
+      )
+
+      unions.push(
+        convertInterfaceRestSelectionSet(
+          {
+            kind: 'SelectionSet',
+            selections: applicableSelections,
+          },
+          type,
+          [...restTypes],
+          config
+        )
+      )
+    }
+    return j.unionTypeAnnotation(unions)
+  }
+
+  const hasTypename = (type: FlowTypeKind): boolean => {
+    switch (type.type) {
+      case 'ObjectTypeAnnotation':
+        return (
+          type.properties.find(
+            p =>
+              p.type === 'ObjectTypeProperty' &&
+              p.key.type === 'Identifier' &&
+              p.key.name === '__typename'
+          ) != null
+        )
+      case 'GenericTypeAnnotation':
+        if (type.id.type === 'Identifier') {
+          const alias = fragments.get(type.id.name)
+          if (alias) return hasTypename(alias.right)
+        }
+        return false
+      case 'IntersectionTypeAnnotation':
+        return type.types.every(hasTypename)
+      default:
+        return false
+    }
+  }
+
+  function convertInlineFragmentSelectionSet(
+    inlineFragment: graphql.InlineFragmentNode,
+    type: AnalyzedType,
+    config: ConfigDirectives
+  ): FlowTypeKind {
+    config = getCombinedConfig(
+      config,
+      { extract: null, external: null },
+      type.config,
+      getCommentDirectives(inlineFragment, cwd)
+    )
+    let { extract: as } = config
+    if (as === true) as = type.name
+    return extractIfNecessary(
+      convertSelectionSet(inlineFragment.selectionSet, type, config),
+      as
+    )
+  }
+
+  function convertInterfaceRestSelectionSet(
+    selectionSet: graphql.SelectionSetNode,
+    type: AnalyzedType,
+    restTypes: AnalyzedType[],
+    config: ConfigDirectives
+  ): FlowTypeKind {
+    config = getCombinedConfig(config, type.config)
+    const { addTypename, useReadOnlyTypes } = config
+    const { selections } = selectionSet
+
+    const props: ObjectTypeProperty[] = []
+    const intersects: FlowTypeKind[] = []
+
+    for (const selection of selections) {
+      switch (selection.kind) {
+        case 'Field': {
+          props.push(convertField(selection, type, config))
+          break
+        }
+        case 'FragmentSpread': {
+          const alias = fragments.get(selection.name.value)
+          if (!alias) {
+            throw new Error(
+              `missing fragment definition named ${selection.name.value}`
+            )
+          }
+          const fragmentType = j.genericTypeAnnotation(alias.id, null)
+          intersects.push(
+            useReadOnlyTypes ? readOnlyType(fragmentType) : fragmentType
+          )
+          break
+        }
+        case 'InlineFragment': {
+          if (selection.typeCondition?.name?.value === type.name) {
+            intersects.push(
+              convertInlineFragmentSelectionSet(selection, type, config)
+            )
+          }
+          break
+        }
+      }
+    }
+    if (addTypename && !intersects.some(hasTypename)) {
+      props.unshift(
+        j.objectTypeProperty(
+          j.identifier('__typename'),
+          j.unionTypeAnnotation(
+            restTypes.map(type =>
+              j.stringLiteralTypeAnnotation(type.name, type.name)
+            )
+          ),
+          false
+        )
+      )
+    }
+    if (props.length) {
+      intersects.unshift(objectTypeAnnotation(props, config))
+    }
+
+    return intersects.length === 1
+      ? intersects[0]
+      : simplifyIntersection(intersects)
+  }
+
+  function convertObjectSelectionSet(
     selectionSet: graphql.SelectionSetNode,
     type: AnalyzedType,
     config: ConfigDirectives
@@ -393,11 +690,46 @@ export default function graphqlToFlow({
     config = getCombinedConfig(config, type.config)
     const { addTypename, useReadOnlyTypes } = config
     const { selections } = selectionSet
-    const propSelections: graphql.FieldNode[] = selections.filter(
-      s => s.kind === 'Field'
-    ) as graphql.FieldNode[]
-    const props = propSelections.map(s => convertField(s, type, config))
-    if (addTypename) {
+
+    const props: (ObjectTypeProperty | ObjectTypeSpreadProperty)[] = []
+    const intersects: FlowTypeKind[] = []
+
+    for (const selection of selections) {
+      switch (selection.kind) {
+        case 'Field': {
+          props.push(convertField(selection, type, config))
+          break
+        }
+        case 'FragmentSpread': {
+          const alias = fragments.get(selection.name.value)
+          if (!alias) {
+            throw new Error(
+              `missing fragment definition named ${selection.name.value}`
+            )
+          }
+          const fragmentType = j.genericTypeAnnotation(alias.id, null)
+          intersects.push(
+            useReadOnlyTypes ? readOnlyType(fragmentType) : fragmentType
+          )
+          break
+        }
+        case 'InlineFragment': {
+          if (
+            !selection.typeCondition ||
+            selection.typeCondition.name.value === type.name ||
+            (type.interfaces || []).some(
+              type => selection.typeCondition?.name.value === type.name
+            )
+          ) {
+            intersects.push(
+              convertInlineFragmentSelectionSet(selection, type, config)
+            )
+          }
+          break
+        }
+      }
+    }
+    if (addTypename && !intersects.some(hasTypename)) {
       props.unshift(
         j.objectTypeProperty(
           j.identifier('__typename'),
@@ -406,28 +738,46 @@ export default function graphqlToFlow({
         )
       )
     }
-    const fragmentSelections: graphql.FragmentSpreadNode[] = selections.filter(
-      s => s.kind === 'FragmentSpread'
-    ) as graphql.FragmentSpreadNode[]
-    const intersects = []
     if (props.length) {
-      intersects.push(objectTypeAnnotation(props, config))
+      intersects.unshift(objectTypeAnnotation(props, config))
     }
-    fragmentSelections.forEach(spread => {
-      const alias = fragments.get(spread.name.value)
+
+    return intersects.length === 1
+      ? intersects[0]
+      : simplifyIntersection(intersects)
+  }
+
+  function convertSelectionSet(
+    selectionSet: graphql.SelectionSetNode,
+    type: AnalyzedType,
+    config: ConfigDirectives
+  ): FlowTypeKind {
+    config = getCombinedConfig(config, type.config)
+    const { useReadOnlyTypes } = config
+
+    const { selections } = selectionSet
+
+    if (selections.length === 1 && selections[0].kind === 'FragmentSpread') {
+      const alias = fragments.get(selections[0].name.value)
       if (!alias) {
         throw new Error(
-          `missing fragment definition named ${spread.name.value}`
+          `missing fragment definition named ${selections[0].name.value}`
         )
       }
       const fragmentType = j.genericTypeAnnotation(alias.id, null)
-      intersects.push(
-        useReadOnlyTypes ? readOnlyType(fragmentType) : fragmentType
-      )
-    })
-    return intersects.length === 1
-      ? intersects[0]
-      : j.intersectionTypeAnnotation(intersects)
+      return useReadOnlyTypes ? readOnlyType(fragmentType) : fragmentType
+    }
+
+    switch (type.kind) {
+      case graphql.TypeKind.UNION:
+        return convertUnionSelectionSet(selectionSet, type, config)
+      case graphql.TypeKind.INTERFACE:
+        return convertInterfaceSelectionSet(selectionSet, type, config)
+      case graphql.TypeKind.OBJECT:
+        return convertObjectSelectionSet(selectionSet, type, config)
+      default:
+        throw new Error(`invalid type for selection set: ${type.kind}`)
+    }
   }
 
   function getInnerType(type: AnalyzedType): AnalyzedType {

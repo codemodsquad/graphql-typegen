@@ -26,8 +26,6 @@ import { applyConfigDefaults } from './config'
 import { AnalyzedSchema } from './analyzeSchema'
 import * as path from 'path'
 
-const { statement } = j.template
-
 const PRAGMA = '@graphql-typegen'
 const AUTO_GENERATED_COMMENT = ` ${PRAGMA} auto-generated`
 
@@ -71,6 +69,7 @@ export default function graphqlTypegenCore(
   const { tagName = 'gql' } = config
 
   const root = j(code)
+  const { statement } = j.template
 
   function precomputeExpressionInGQLTemplateLiteral(
     path: ASTPath<any> | typeof FAIL
@@ -115,35 +114,6 @@ export default function graphqlTypegenCore(
 
     return parts.join('')
   }
-
-  const addQueryRenderProps = once(
-    () =>
-      addImports(
-        root,
-        statement`import {type QueryRenderProps} from 'react-apollo'`
-      ).QueryRenderProps
-  )
-  const addMutationFunction = once(
-    () =>
-      addImports(
-        root,
-        statement`import {type MutationFunction} from 'react-apollo'`
-      ).MutationFunction
-  )
-  const addMutationResult = once(
-    () =>
-      addImports(
-        root,
-        statement`import {type MutationResult} from 'react-apollo'`
-      ).MutationResult
-  )
-  const addSubscriptionResult = once(
-    () =>
-      addImports(
-        root,
-        statement`import {type SubscriptionResult} from 'react-apollo'`
-      ).SubscriptionResult
-  )
 
   const queryRenderPropsAnnotation = (
     data: TypeAlias,
@@ -233,6 +203,40 @@ export default function graphqlTypegenCore(
       statement`import {useSubscription} from '@apollo/react-hooks'`
     ).useSubscription
 
+  const hasApolloReactHooks =
+    root
+      .find(j.ImportDeclaration, { source: { value: '@apollo/react-hooks' } })
+      .size() > 0
+  const apolloPkg = hasApolloReactHooks ? '@apollo/react-hooks' : 'react-apollo'
+
+  const addQueryRenderProps = once(
+    () =>
+      addImports(
+        root,
+        statement([`import {type QueryRenderProps} from '${apolloPkg}'`])
+      ).QueryRenderProps
+  )
+  const addMutationFunction = once(
+    () =>
+      addImports(
+        root,
+        statement([`import {type MutationFunction} from '${apolloPkg}'`])
+      ).MutationFunction
+  )
+  const addMutationResult = once(
+    () =>
+      addImports(
+        root,
+        statement([`import {type MutationResult} from '${apolloPkg}'`])
+      ).MutationResult
+  )
+  const addSubscriptionResult = once(
+    () =>
+      addImports(
+        root,
+        statement([`import {type SubscriptionResult} from '${apolloPkg}'`])
+      ).SubscriptionResult
+  )
   const generatedTypesForQuery = new Map()
 
   for (const path of queryPaths) {

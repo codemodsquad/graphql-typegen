@@ -6,9 +6,139 @@
 [![Commitizen friendly](https://img.shields.io/badge/commitizen-friendly-brightgreen.svg)](http://commitizen.github.io/cz-cli/)
 [![npm version](https://badge.fury.io/js/graphql-typegen.svg)](https://badge.fury.io/js/graphql-typegen)
 
-**Work in progress**
-
 JSCodeshift transform that inserts Flow types generated from GraphQL documents in template string literals and your GraphQL schema
+
+# Table of Contents
+
+<!-- toc -->
+
+- [Example](#example)
+  - [Before](#before)
+  - [After](#after)
+- [Rationale](#rationale)
+  - [Importing generated types from external files is annoying](#importing-generated-types-from-external-files-is-annoying)
+  - [`graphql-codegen` outputs messy types for documents](#graphql-codegen-outputs-messy-types-for-documents)
+  - [I want to extract parts of the query with their own type aliases](#i-want-to-extract-parts-of-the-query-with-their-own-type-aliases)
+  - [Interpolation in GraphQL tagged template literals](#interpolation-in-graphql-tagged-template-literals)
+  - [Automatically adding type annotations to `useQuery`, `useMutation`, and `useSubscription` hooks](#automatically-adding-type-annotations-to-usequery-usemutation-and-usesubscription-hooks)
+- [Configuration](#configuration)
+  - [`schemaFile` / `server`](#schemafile--server)
+  - [`addTypename` (default: `true`)](#addtypename-default-true)
+  - [`objectType` (default: `ambiguous`)](#objecttype-default-ambiguous)
+  - [`useReadOnlyTypes` (default: `false`)](#usereadonlytypes-default-false)
+  - [`external as`](#external-as-)
+  - [`extract [as ]`](#extract-as-)
+- [CLI Usage](#cli-usage)
+
+<!-- tocstop -->
+
+# Example
+
+## Before
+
+```js
+import gql from 'graphql-tag'
+
+const fragment = gql`
+  fragment CharacterFields on Character {
+    name
+    appearsIn
+  }
+`
+
+const fragment2 = gql`
+  ${fragment}
+  # @graphql-typegen readOnly
+  fragment CharacterAndFriends on Character {
+    ...CharacterFields
+    friends {
+      ...CharacterFields
+    }
+  }
+`
+
+const query = gql`
+  ${fragment2}
+  query Test($id: ID!) {
+    character(id: $id) {
+      id
+      ...CharacterAndFriends
+    }
+  }
+`
+```
+
+## After
+
+```js
+import gql from 'graphql-tag'
+
+const fragment = gql`
+  fragment CharacterFields on Character {
+    name
+    appearsIn
+    ... on Human {
+      mass
+    }
+    ... on Droid {
+      primaryFunction
+    }
+  }
+`
+
+// @graphql-typegen auto-generated
+type CharacterFields =
+  | {
+      name: string,
+      appearsIn: Array<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
+      __typename: 'Human',
+      mass: ?number,
+    }
+  | {
+      name: string,
+      appearsIn: Array<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
+      __typename: 'Droid',
+      primaryFunction: ?string,
+    }
+
+const fragment2 = gql`
+  ${fragment}
+  fragment CharacterAndFriends on Character {
+    ...CharacterFields
+    friends {
+      ...CharacterFields
+    }
+  }
+`
+
+// @graphql-typegen auto-generated
+type CharacterAndFriends = {
+  __typename: 'Human' | 'Droid',
+  friends: ?Array<?CharacterFields>,
+} & CharacterFields
+
+const query = gql`
+  ${fragment2}
+  query Test($id: ID!) {
+    character(id: $id) {
+      id
+      ...CharacterAndFriends
+    }
+  }
+`
+
+// @graphql-typegen auto-generated
+type TestQueryVariables = { id: string }
+
+// @graphql-typegen auto-generated
+type TestQueryData = {
+  __typename: 'Query',
+  character: ?({
+    __typename: 'Human' | 'Droid',
+    id: string,
+  } & CharacterAndFriends),
+}
+```
 
 # Rationale
 
@@ -302,4 +432,247 @@ const Foo = ({id}: {id: ID}): React.Node => {
   const {data} = useQuery<UserQueryData, UserQueryVariables>(userQuery, {variables: {id}})
   return <pre>{JSON.stringify(data)}</pre>
 }
+```
+
+# Configuration
+
+## `schemaFile` / `server`
+
+First, you need to add the following to your `package.json` to tell `graphql-typegen` how to
+find your schema:
+
+```
+  "graphql-typegen": {
+    "schemaFile": "path/to/schema.graphql"
+  }
+```
+
+Or
+
+```
+  "graphql-typegen": {
+    "server": "http://localhost:4000/graphql"
+  }
+```
+
+## `addTypename` (default: `true`)
+
+Places this may be configured, in order of increasing precendence:
+
+### `package.json`
+
+```
+  "graphql-typegen": {
+    "addTypename": false
+  }
+```
+
+### in the description for a type or field in your GraphQL schema
+
+```graphql
+"""
+@graphql-typegen noTypename
+"""
+type User {
+  id: ID!
+  name: String!
+}
+```
+
+### in a comment in your GraphQL document
+
+```js
+const query = gql`
+  query user($id: Int!) {
+    # @graphql-typegen addTypename
+    user(id: $id) {
+      id
+      name
+    }
+  }
+`
+```
+
+## `objectType` (default: `ambiguous`)
+
+The type of Flow object to output, one of:
+
+- `exact`
+- `inexact`
+- `ambiguous`
+
+Places this may be configured, in order of increasing precendence:
+
+### `package.json`
+
+```
+  "graphql-typegen": {
+    "objectType": "exact"
+  }
+```
+
+### in the description for a type or field in your GraphQL schema
+
+```graphql
+"""
+@graphql-typegen exact
+"""
+type User {
+  id: ID!
+  name: String!
+}
+```
+
+### in a comment in your GraphQL document
+
+```js
+const query = gql`
+  query user($id: Int!) {
+    # @graphql-typegen exact
+    user(id: $id) {
+      id
+      name
+    }
+  }
+`
+```
+
+## `useReadOnlyTypes` (default: `false`)
+
+Whether to use readonly object and array types.
+
+Places this may be configured, in order of increasing precendence:
+
+### `package.json`
+
+```
+  "graphql-typegen": {
+    "useReadOnlyTypes": true
+  }
+```
+
+### in the description for a type or field in your GraphQL schema
+
+```graphql
+"""
+@graphql-typegen readOnly
+"""
+type User {
+  id: ID!
+  name: String!
+}
+```
+
+### in a comment in your GraphQL document
+
+```js
+const query = gql`
+  query user($id: Int!) {
+    # @graphql-typegen mutable
+    user(id: $id) {
+      id
+      name
+    }
+  }
+`
+```
+
+## `external as <type annotation or import statement>`
+
+Makes `graphql-typegen` use the given external type for a scalar.
+
+Places this may be configured, in order of increasing precendence:
+
+### in the description for a type or field in your GraphQL schema
+
+```graphql
+"""
+@graphql-typegen external as import { type DateISOString } from './src/types/DateISOString'
+"""
+scalar DateTime
+```
+
+### in a comment in your GraphQL document
+
+```js
+const query = gql`
+  query user($id: Int!) {
+    user(id: $id) {
+      id
+      # @graphql-typegen external as string
+      createdAt
+    }
+  }
+`
+```
+
+## `extract [as <identifier>]`
+
+Makes `graphql-typegen` extract the given type or field's inner type into a type alias,
+instead of generating an inline type.
+
+There may be funky behavior if a selection set with inline fragment spreads is extracted.
+
+The name of the type is used if you don't specify **as <identifier>**.
+
+Places this may be configured, in order of increasing precendence:
+
+### in the description for a type or field in your GraphQL schema
+
+```graphql
+"""
+@graphql-typegen extract
+"""
+type User {
+
+}
+```
+
+### in a comment in your GraphQL document
+
+```js
+const query = gql`
+  query user($id: Int!) {
+    # @graphql-typegen extract as User
+    user(id: $id) {
+      id
+      name
+    }
+  }
+`
+```
+
+#### Output without `extract`
+
+```js
+// @graphql-typegen auto-generated
+type UserQueryData = {
+  __typename: 'Query',
+  user: ?{
+    id: string,
+    name: string,
+  },
+}
+```
+
+#### Output with `extract as User`
+
+```js
+// @graphql-typegen auto-generated
+type UserQueryData = {
+  __typename: 'Query',
+  user: ?User,
+}
+
+// @graphql-typegen auto-generated
+type User = {
+  id: string,
+  name: string,
+}
+```
+
+# CLI Usage
+
+```
+jscodeshift -t path/to/graphql-typegen/graphql-typegen.js src/**/*.js
 ```

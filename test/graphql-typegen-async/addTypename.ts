@@ -29,7 +29,7 @@ type TestQueryVariables = { id: string }
 type TestQueryData = {
   __typename: 'Query',
   character: ?{
-    __typename: 'Character',
+    __typename: 'Human' | 'Droid',
     id: string,
     name: string,
     appearsIn: Array<?('NEWHOPE' | 'EMPIRE' | 'JEDI')>,
