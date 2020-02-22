@@ -48,7 +48,6 @@ const fragment = gql`
 
 const fragment2 = gql`
   ${fragment}
-  # @graphql-typegen readOnly
   fragment CharacterAndFriends on Character {
     ...CharacterFields
     friends {
