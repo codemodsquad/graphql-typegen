@@ -233,8 +233,6 @@ export default function graphqlToFlow({
       { external: null, extract: null },
       getCommentDirectives(def, cwd)
     )
-    const { external } = config
-    if (external) return
     let { extract } = config
 
     const type = convertSelectionSet(
@@ -347,6 +345,7 @@ export default function graphqlToFlow({
     type: graphql.NamedTypeNode | graphql.ListTypeNode,
     config: ConfigDirectives
   ): FlowTypeKind {
+    config = getCombinedConfig(config, getCommentDirectives(type, cwd))
     switch (type.kind) {
       case 'NamedType':
         return convertVariableTypeName(type.name.value, config)
@@ -373,6 +372,7 @@ export default function graphqlToFlow({
         return j.stringTypeAnnotation()
     }
     const type = types[name]
+    config = getCombinedConfig(type.config, config)
 
     const { external } = config
     if (external) return getExternalType(external)
@@ -572,7 +572,7 @@ export default function graphqlToFlow({
         )
       )
     }
-    return j.unionTypeAnnotation(unions)
+    return unions.length === 1 ? unions[0] : j.unionTypeAnnotation(unions)
   }
 
   const hasTypename = (type: FlowTypeKind): boolean => {
@@ -960,7 +960,7 @@ export default function graphqlToFlow({
 
   // convert fragments first
   for (const def of document.definitions) {
-    if (def.kind === 'FragmentDefinition') convertFragmentDefinition(def)
+    if (def.kind === 'FragmentDefinition') convertDefinition(def)
   }
   for (const def of document.definitions) {
     if (def.kind !== 'FragmentDefinition') convertDefinition(def)
