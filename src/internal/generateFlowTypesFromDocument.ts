@@ -70,6 +70,12 @@ export default function graphqlToFlow({
 
   const MutationFunction = once(getMutationFunction)
 
+  const getType = (name: graphql.NameNode): AnalyzedType => {
+    const type = types[name.value]
+    if (!type) throw new Error(`unknown type: ${name.value}`)
+    return type
+  }
+
   function getCombinedConfig(
     ...args: (
       | Partial<{
@@ -114,9 +120,16 @@ export default function graphqlToFlow({
           .find(j.TypeAlias)
           .nodes()[0].right
       } else {
-        const parsed = statement([external.import])
+        let parsed
+        try {
+          parsed = statement([external.import])
+        } catch (error) {
+          throw new Error(
+            `invalid import declaration: ${external.import} (${error.message})`
+          )
+        }
         if (parsed.type !== 'ImportDeclaration') {
-          throw new Error(`invalid import declaration: ${external}`)
+          throw new Error(`invalid import declaration: ${external.import}`)
         }
         const decl: ImportDeclaration = parsed
         const source = decl.source.value
@@ -131,13 +144,13 @@ export default function graphqlToFlow({
 
         if (decl.specifiers.length !== 1) {
           throw new Error(
-            `import declaration must have only one specifier: ${external}`
+            `import declaration must have only one specifier: ${external.import}`
           )
         }
         const identifier = decl.specifiers[0].local?.name
         if (!identifier) {
           throw new Error(
-            `unable to determine imported identifier: ${external}`
+            `unable to determine imported identifier: ${external.import}`
           )
         }
         imports.push(parsed)
@@ -237,7 +250,7 @@ export default function graphqlToFlow({
 
     const type = convertSelectionSet(
       def.selectionSet,
-      types[def.typeCondition.name.value],
+      getType(def.typeCondition.name),
       config
     )
     if (typeof extract !== 'string') {
@@ -348,7 +361,7 @@ export default function graphqlToFlow({
     config = getCombinedConfig(config, getCommentDirectives(type, cwd))
     switch (type.kind) {
       case 'NamedType':
-        return convertVariableTypeName(type.name.value, config)
+        return convertVariableTypeName(type.name, config)
       case 'ListType':
         return arrayTypeAnnotation(
           convertVariableType(type.type, config),
@@ -358,10 +371,10 @@ export default function graphqlToFlow({
   }
 
   function convertVariableTypeName(
-    name: string,
+    name: graphql.NameNode,
     config: ConfigDirectives
   ): FlowTypeKind {
-    switch (name) {
+    switch (name.value) {
       case 'Boolean':
         return j.booleanTypeAnnotation()
       case 'Int':
@@ -371,13 +384,13 @@ export default function graphqlToFlow({
       case 'String':
         return j.stringTypeAnnotation()
     }
-    const type = types[name]
+    const type = getType(name)
     config = getCombinedConfig(type.config, config)
 
     const { external } = config
     if (external) return getExternalType(external)
     let { extract: as } = config
-    if (as === true) as = name
+    if (as === true) as = name.value
 
     if (type.kind === graphql.TypeKind.ENUM) {
       const { enumValues } = type
@@ -409,12 +422,7 @@ export default function graphqlToFlow({
         def.kind === 'FragmentDefinition' &&
         def.name.value === fragmentName
       ) {
-        const typeName = def.typeCondition.name.value
-        const type = types[typeName]
-        if (!type) {
-          throw new Error(`failed to find type: ${typeName}`)
-        }
-        return type
+        return getType(def.typeCondition.name)
       }
     }
     throw new Error(`failed to find fragment: ${fragmentName}`)
