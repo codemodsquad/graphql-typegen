@@ -5,7 +5,7 @@ import gql from 'graphql-tag'
 
 const subscription = gql\`
 subscription Test($episode: Episode!) {
-  reviewAdded(episode: $Episode) {
+  reviewAdded(episode: $episode) {
     episode
     stars
     commentary

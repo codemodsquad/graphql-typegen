@@ -26,6 +26,7 @@ import { applyConfigDefaults } from './config'
 import { AnalyzedSchema } from './analyzeSchema'
 import * as path from 'path'
 import precomputeError from './precompute/precomputeError'
+import { validationRules } from './validationRules'
 
 const PRAGMA = '@graphql-typegen'
 const AUTO_GENERATED_COMMENT = ` ${PRAGMA} auto-generated`
@@ -56,10 +57,14 @@ export default function graphqlTypegenCore(
   { path: file, source: code }: FileInfo,
   { j }: API,
   options: Options,
-  { schema }: { schema: AnalyzedSchema }
+  {
+    analyzedSchema: schema,
+    schema: introspectionSchema,
+  }: { analyzedSchema: AnalyzedSchema; schema: graphql.GraphQLSchema }
 ): string {
+  const cwd = path.dirname(file)
   const packageConf = pkgConf.sync('graphql-typegen', {
-    cwd: path.dirname(file),
+    cwd,
   })
   if (packageConf?.schemaFile) {
     const packageDir = path.dirname(pkgConf.filepath(packageConf) as any)
@@ -249,11 +254,12 @@ export default function graphqlTypegenCore(
     if (typeof query === 'symbol') {
       throw new Error(`failed to compute query`)
     }
-    const queryAST = typeof query === 'string' ? graphql.parse(query) : query
+    const document: graphql.DocumentNode =
+      typeof query === 'string' ? graphql.parse(query) : query
     const queryNames = []
     const mutationNames = []
     const subscriptionNames = []
-    graphql.visit(queryAST, {
+    graphql.visit(document, {
       [graphql.Kind.OPERATION_DEFINITION]({ operation, name }) {
         switch (operation) {
           case 'query':
@@ -269,13 +275,24 @@ export default function graphqlTypegenCore(
       },
     })
 
+    if (config.validate) {
+      const errors = graphql.validate(
+        introspectionSchema,
+        document,
+        validationRules
+      )
+      if (errors.length) {
+        throw new Error(errors.map(error => error.message).join('\n'))
+      }
+    }
+
     const {
       statements: types,
       generatedTypes,
       imports,
     } = generateFlowTypesFromDocument({
       file,
-      query,
+      document,
       types: schema,
       getMutationFunction: addMutationFunction,
       config,

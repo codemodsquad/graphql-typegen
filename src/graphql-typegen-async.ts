@@ -23,6 +23,12 @@ module.exports = async function graphqlTypegenAsync(
   }
   const config = applyConfigDefaults(Object.assign(packageConf, options))
   const { schemaFile, server } = config
-  const schema = await analyzeSchema({ schemaFile, server })
-  return graphqlTypegenCore(fileInfo, api, options, { schema })
+  const { analyzed, schema } = await analyzeSchema({
+    schemaFile,
+    server,
+  })
+  return graphqlTypegenCore(fileInfo, api, options, {
+    analyzedSchema: analyzed,
+    schema,
+  })
 }

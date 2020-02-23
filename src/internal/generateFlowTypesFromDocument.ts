@@ -45,15 +45,15 @@ type GeneratedTypes = {
   fragment: Record<string, TypeAlias>
 }
 
-export default function graphqlToFlow({
-  query,
+export default function generateFlowTypesFromDocument({
+  document,
   file,
   types,
   config: _config,
   getMutationFunction,
   j,
 }: {
-  query: string | graphql.DocumentNode
+  document: graphql.DocumentNode
   file: string
   types: Record<string, AnalyzedType>
   config: Config
@@ -216,9 +216,6 @@ export default function graphqlToFlow({
         .basename(file)
         .replace(/\..+$/, '')
     : null
-
-  const document: graphql.DocumentNode =
-    typeof query === 'string' ? (query = graphql.parse(query)) : query
 
   const fragments: Map<string, TypeAlias> = new Map()
   const statements: TypeAlias[] = []

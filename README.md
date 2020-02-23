@@ -469,6 +469,20 @@ Configure this in your `package.json`:
   }
 ```
 
+## `validate` (default: `true`)
+
+Whether to validate each GraphQL document before processing it.
+Excludes `NoUnusedFragmentsRule` from validation, in case you put fragment definitions
+in separate template literals.
+
+Right now this is only configurable in your `package.json`:
+
+```
+  "graphql-typegen": {
+    "validate": false
+  }
+```
+
 ## `addTypename` (default: `true`)
 
 Places this may be configured, in order of increasing precendence:

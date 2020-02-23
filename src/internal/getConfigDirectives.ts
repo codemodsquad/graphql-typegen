@@ -95,5 +95,11 @@ export default function getConfigDirectives(
       }
     }
   }
-  return { external, extract, objectType, useReadOnlyTypes, addTypename }
+  return {
+    external,
+    extract,
+    objectType,
+    useReadOnlyTypes,
+    addTypename,
+  }
 }

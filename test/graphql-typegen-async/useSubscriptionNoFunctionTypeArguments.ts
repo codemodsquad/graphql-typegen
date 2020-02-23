@@ -10,7 +10,7 @@ subscription Test(
   # @graphql-typegen extract
   $episode: Episode!
 ) {
-  reviewAdded(episode: $Episode) {
+  reviewAdded(episode: $episode) {
     episode
     stars
     commentary
@@ -42,7 +42,7 @@ subscription Test(
   # @graphql-typegen extract
   $episode: Episode!
 ) {
-  reviewAdded(episode: $Episode) {
+  reviewAdded(episode: $episode) {
     episode
     stars
     commentary

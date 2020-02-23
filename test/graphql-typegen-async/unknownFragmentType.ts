@@ -19,6 +19,7 @@ query Test($id: ID!) {
 
 export const options = {
   addTypename: false,
+  validate: false,
   schemaFile: path.resolve(__dirname, '../../starwars.graphql'),
 }
 

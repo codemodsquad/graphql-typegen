@@ -1,95 +1,13 @@
 #! /usr/bin/env babel-node --extensions .js,.ts
 /* eslint-disable @typescript-eslint/no-use-before-define */
 
-import gql from 'graphql-tag'
 import * as graphql from 'graphql'
 import superagent from 'superagent'
 import getConfigDirectives, { ConfigDirectives } from './getConfigDirectives'
 import { execFileSync } from 'child_process'
+import { getIntrospectionQuery } from 'graphql/utilities/introspectionQuery'
 import * as fs from 'fs'
 import * as path from 'path'
-import flatted from 'flatted'
-
-const typesQuery = gql`
-  fragment typeInfo on __Type {
-    name
-    kind
-    # Fetch really deep just in case someone is doing something like [[[Float!]!]!]!...
-    # Haven't devised a plan to deal with arbitrarily deep types yet
-    ofType {
-      name
-      kind
-      ofType {
-        name
-        kind
-        ofType {
-          name
-          kind
-          ofType {
-            name
-            kind
-            ofType {
-              name
-              kind
-              ofType {
-                name
-                kind
-                ofType {
-                  name
-                  kind
-                  ofType {
-                    name
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  query getTypes {
-    __schema {
-      types {
-        kind
-        name
-        description
-        enumValues {
-          name
-          description
-        }
-        interfaces {
-          name
-          description
-        }
-        possibleTypes {
-          ...typeInfo
-        }
-        fields {
-          name
-          description
-          args {
-            name
-            description
-            type {
-              ...typeInfo
-            }
-          }
-          type {
-            ...typeInfo
-          }
-        }
-        inputFields {
-          name
-          description
-          type {
-            ...typeInfo
-          }
-        }
-      }
-    }
-  }
-`
 
 export type TypeKind =
   | 'SCALAR'
@@ -176,13 +94,14 @@ export type AnalyzedType = {
 }
 
 function analyzeTypes(
-  introspectionTypes: Array<IntrospectionType>,
+  data: graphql.IntrospectionQuery,
   {
     cwd,
   }: {
     cwd: string
   }
 ): Record<string, AnalyzedType> {
+  const introspectionTypes: IntrospectionType[] = data.__schema.types as any
   function getDescriptionDirectives(
     description: string | undefined
   ): ConfigDirectives {
@@ -340,8 +259,12 @@ function analyzeTypes(
 }
 
 export type AnalyzedSchema = Record<string, AnalyzedType>
+export type AnalyzeResult = {
+  analyzed: AnalyzedSchema
+  schema: graphql.GraphQLSchema
+}
 
-export default async function analyzeSchema({
+export async function getIntrospectionData({
   schema,
   schemaFile,
   server,
@@ -349,46 +272,60 @@ export default async function analyzeSchema({
   schemaFile?: string
   schema?: graphql.GraphQLSchema
   server?: string
-}): Promise<AnalyzedSchema> {
-  let result: graphql.ExecutionResult<{
-    __schema: { types: IntrospectionType[] }
-  }>
+}): Promise<graphql.IntrospectionQuery> {
   if (schemaFile)
     schema = graphql.buildSchema(fs.readFileSync(schemaFile, 'utf8'))
-  if (schema) result = await graphql.execute(schema, typesQuery)
+  const introspectionQuery = graphql.parse(getIntrospectionQuery())
+  let introspection
+  if (schema) introspection = await graphql.execute(schema, introspectionQuery)
   else if (server) {
-    result = (
+    introspection = (
       await superagent
         .post(server)
         .type('json')
         .accept('json')
         .send({
-          query: typesQuery,
+          query: introspectionQuery,
         })
     ).body
   } else {
     throw new Error('schemaFile or server must be configured')
   }
-  const { data } = result
-  if (!data) throw new Error('failed to get introspection query data')
-  const {
-    __schema: { types },
-  } = data
+  if (introspection.errors) {
+    throw new Error(
+      `failed to get introspection data:\n${introspection.errors.join('\n')}`
+    )
+  }
+  return introspection.data
+}
+
+export default async function analyzeSchema(options: {
+  schemaFile?: string
+  schema?: graphql.GraphQLSchema
+  server?: string
+}): Promise<AnalyzeResult> {
+  const data = await getIntrospectionData(options)
+  const { schemaFile } = options
+  const schema = options.schema || graphql.buildClientSchema(data)
+
   const cwd = schemaFile ? path.dirname(schemaFile) : process.cwd()
-  return analyzeTypes(types, { cwd })
+  return {
+    analyzed: analyzeTypes(data, { cwd }),
+    schema,
+  }
 }
 
 const schemaFileTimestamps: Map<string, Date> = new Map()
-const schemaCache: Map<string, AnalyzedSchema> = new Map()
+const schemaCache: Map<string, AnalyzeResult> = new Map()
 
 /**
- * Uses execFileSync to run analyzeSchema synchronously,
+ * Uses execFileSync to analyze the schema synchronously,
  * since jscodeshift transforms unfortunately have to be sync right now
  */
 export function analyzeSchemaSync(options: {
   schemaFile?: string
   server?: string
-}): AnalyzedSchema {
+}): AnalyzeResult {
   const file = options.schemaFile
   if (file) {
     const timestamp = schemaFileTimestamps.get(file)
@@ -403,20 +340,30 @@ export function analyzeSchemaSync(options: {
     }
   }
 
-  const schema = flatted.parse(
+  const data = JSON.parse(
     execFileSync(
-      require.resolve('./runAnalyzeSchemaSync'),
-      [JSON.stringify({ ...options, target: __filename })],
+      require.resolve('./runSync'),
+      [
+        JSON.stringify({
+          ...options,
+          target: __filename,
+          method: 'getIntrospectionData',
+        }),
+      ],
       {
         encoding: 'utf8',
         maxBuffer: 256 * 1024 * 1024,
       }
     )
   )
+  const cwd = file ? path.dirname(file) : process.cwd()
+  const schema = graphql.buildClientSchema(data)
+  const analyzed = analyzeTypes(data, { cwd })
+  const result = { analyzed, schema }
   if (file) {
     const latest = fs.statSync(file).mtime
     schemaFileTimestamps.set(file, latest)
-    schemaCache.set(file, schema)
+    schemaCache.set(file, result)
   }
-  return schema
+  return result
 }

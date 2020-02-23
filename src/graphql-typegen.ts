@@ -23,6 +23,12 @@ module.exports = function graphqlTypegen(
   }
   const config = applyConfigDefaults(Object.assign(packageConf, options))
   const { schemaFile, server } = config
-  const schema = analyzeSchemaSync({ schemaFile, server })
-  return graphqlTypegenCore(fileInfo, api, options, { schema })
+  const { analyzed, schema } = analyzeSchemaSync({
+    schemaFile,
+    server,
+  })
+  return graphqlTypegenCore(fileInfo, api, options, {
+    analyzedSchema: analyzed,
+    schema,
+  })
 }

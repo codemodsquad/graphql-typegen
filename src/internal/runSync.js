@@ -2,16 +2,16 @@
 
 /* eslint-disable */
 
-var flatted = require('flatted')
-var options = JSON.parse(process.argv[2])
-if (/\.ts$/.test(options.target)) {
+const { target, method, ...options } = JSON.parse(process.argv[2])
+// istanbul ignore next
+if (/\.ts$/.test(target)) {
   require('@babel/register')({ extensions: ['.js', '.ts'] })
 }
-require(options.target)
-  .default(JSON.parse(process.argv[2]))
+require(target)
+  [method](options)
   .then(
     function(result) {
-      process.stdout.write(flatted.stringify(result), function() {
+      process.stdout.write(JSON.stringify(result), function() {
         process.exit(0)
       })
     },

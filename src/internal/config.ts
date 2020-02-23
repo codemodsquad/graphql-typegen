@@ -38,6 +38,10 @@ export type Config = {
    *   const data: QueryRenderProps<QueryData, QueryVariables> = useQuery(query, {variables: {id}})
    */
   useFunctionTypeArguments?: boolean
+  /**
+   * Whether to validate GraphQL queries
+   */
+  validate?: boolean
 }
 
 export type DefaultedConfig = {
@@ -77,7 +81,11 @@ export type DefaultedConfig = {
    *
    *   const data: QueryRenderProps<QueryData, QueryVariables> = useQuery(query, {variables: {id}})
    */
-  useFunctionTypeArguments?: boolean
+  useFunctionTypeArguments: boolean
+  /**
+   * Whether to validate GraphQL queries
+   */
+  validate: boolean
 }
 
 export function applyConfigDefaults(config: Config): DefaultedConfig {
@@ -87,6 +95,7 @@ export function applyConfigDefaults(config: Config): DefaultedConfig {
   const useReadOnlyTypes = config.useReadOnlyTypes ?? false
   const objectType = config.objectType || 'ambiguous'
   const useFunctionTypeArguments = config.useFunctionTypeArguments ?? true
+  const validate = config.validate ?? true
 
   const result = {
     schemaFile,
@@ -96,6 +105,7 @@ export function applyConfigDefaults(config: Config): DefaultedConfig {
     useReadOnlyTypes,
     objectType,
     useFunctionTypeArguments,
+    validate,
   }
 
   for (const key in config) {
