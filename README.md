@@ -6,7 +6,7 @@
 [![Commitizen friendly](https://img.shields.io/badge/commitizen-friendly-brightgreen.svg)](http://commitizen.github.io/cz-cli/)
 [![npm version](https://badge.fury.io/js/graphql-typegen.svg)](https://badge.fury.io/js/graphql-typegen)
 
-JSCodeshift transform that inserts Flow types generated from GraphQL documents in template string literals and your GraphQL schema
+JSCodeshift transform that inserts Flow types generated from GraphQL documents in template string literals and your GraphQL schema, and wires up the generated types to Apollo
 
 # Table of Contents
 
