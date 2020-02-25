@@ -29,13 +29,13 @@ import simplifyIntersection from './simplifyIntersection'
 
 type GeneratedQueryType = {
   variables?: TypeAlias
-  data: TypeAlias
+  data?: TypeAlias
 }
 
 type GeneratedMutationType = {
   variables?: TypeAlias
-  data: TypeAlias
-  mutationFunction: TypeAlias
+  data?: TypeAlias
+  mutationFunction?: TypeAlias
 }
 
 type GeneratedTypes = {
@@ -106,6 +106,8 @@ export default function generateFlowTypesFromDocument({
       addTypename,
       extract,
       external,
+      ignoreData: undefined,
+      ignoreVariables: undefined,
     }
   }
 
@@ -261,10 +263,14 @@ export default function generateFlowTypesFromDocument({
   function convertOperationDefinition(
     def: graphql.OperationDefinitionNode
   ): void {
+    const ownDirectives = getCommentDirectives(def, cwd)
+    const { ignoreData, ignoreVariables } = ownDirectives
+    if (ignoreData && ignoreVariables) return
+
     const { operation, selectionSet, variableDefinitions } = def
     const config = getCombinedConfig(
       { external: null, extract: null },
-      getCommentDirectives(def, cwd)
+      ownDirectives
     )
 
     let name = def.name ? upperFirst(def.name.value) : `Unnamed`
@@ -277,38 +283,70 @@ export default function generateFlowTypesFromDocument({
     if (name.toLowerCase().lastIndexOf(operation) < 0) {
       name += upperFirst(operation)
     }
-    const data = addTypeAlias(
-      `${name}Data`,
-      convertSelectionSet(selectionSet, types[upperFirst(operation)], config)
-    )
     if (operation === 'query' || operation === 'subscription') {
       const operationTypes: GeneratedQueryType = def.name
-        ? (generatedTypes[operation][def.name.value] = { data })
-        : { data }
-      if (variableDefinitions && variableDefinitions.length) {
+        ? (generatedTypes[operation][def.name.value] = {})
+        : {}
+      if (!ignoreData) {
+        operationTypes.data = addTypeAlias(
+          `${name}Data`,
+          convertSelectionSet(
+            selectionSet,
+            types[upperFirst(operation)],
+            config
+          )
+        )
+      }
+      if (
+        !ignoreVariables &&
+        variableDefinitions &&
+        variableDefinitions.length
+      ) {
         operationTypes.variables = addTypeAlias(
           `${name}Variables`,
           convertVariableDefinitions(variableDefinitions, config)
         )
       }
     } else if (operation === 'mutation') {
-      const variables =
-        variableDefinitions && variableDefinitions.length
-          ? addTypeAlias(
-              `${name}Variables`,
-              convertVariableDefinitions(variableDefinitions, config)
-            )
-          : null
-      const mutationFunction = statement([
-        `type ${name}Function = ${MutationFunction()}<${data.id.name}${
-          variables ? `, ${variables.id.name}` : ''
-        }>`,
-      ])
-      statements.push(mutationFunction)
       const operationTypes: GeneratedMutationType = def.name
-        ? (generatedTypes.mutation[def.name.value] = { data, mutationFunction })
-        : { data, mutationFunction }
-      if (variables) operationTypes.variables = variables
+        ? (generatedTypes[operation][def.name.value] = {})
+        : {}
+
+      let data, variables
+
+      if (!ignoreData) {
+        const _data = addTypeAlias(
+          `${name}Data`,
+          convertSelectionSet(
+            selectionSet,
+            types[upperFirst(operation)],
+            config
+          )
+        )
+        data = _data
+        operationTypes.data = _data
+      }
+      if (
+        !ignoreVariables &&
+        variableDefinitions &&
+        variableDefinitions.length
+      ) {
+        const _variables = addTypeAlias(
+          `${name}Variables`,
+          convertVariableDefinitions(variableDefinitions, config)
+        )
+        variables = _variables
+        operationTypes.variables = _variables
+      }
+      if (data && variables) {
+        const mutationFunction = statement([
+          `type ${name}Function = ${MutationFunction()}<${data.id.name}${
+            variables ? `, ${variables.id.name}` : ''
+          }>`,
+        ])
+        operationTypes.mutationFunction = mutationFunction
+        statements.push(mutationFunction)
+      }
     }
   }
 

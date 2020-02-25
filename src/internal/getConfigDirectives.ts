@@ -1,3 +1,4 @@
+import * as graphql from 'graphql'
 import { pragma } from './pragma'
 import isValidIdentifier from './isValidIdentifier'
 import { ObjectType } from './config'
@@ -10,17 +11,22 @@ export type ConfigDirectives = {
   objectType: ObjectType | undefined
   useReadOnlyTypes: boolean | undefined
   addTypename: boolean | undefined
+  ignoreData: boolean | undefined
+  ignoreVariables: boolean | undefined
 }
 
 export default function getConfigDirectives(
   lines: Iterable<string>,
-  cwd: string
+  { cwd, nodeKind }: { cwd: string; nodeKind?: graphql.KindEnum }
 ): ConfigDirectives {
   let external: External | undefined = undefined
   let extract: string | true | undefined = undefined
   let objectType: ObjectType | undefined = undefined
   let useReadOnlyTypes: boolean | undefined = undefined
   let addTypename: boolean | undefined = undefined
+  let ignoreData: boolean | undefined = undefined
+  let ignoreVariables: boolean | undefined = undefined
+
   for (let value of lines) {
     value = value.trim()
     if (!value) continue
@@ -53,6 +59,27 @@ export default function getConfigDirectives(
       } else {
         if (!parts[2]) throw new Error(`missing as clause after external`)
         throw new Error(`invalid token after external: ${parts[2]}`)
+      }
+    } else if (parts[1] === 'ignore') {
+      if (nodeKind !== 'OperationDefinition') {
+        throw new Error('ignore is only supported on operation definitions!')
+      }
+      if (parts[2]) {
+        switch (parts[2]) {
+          case 'data':
+            ignoreData = true
+            break
+          case 'variables':
+            ignoreVariables = true
+            break
+          default:
+            throw new Error(`invalid token after ignore: ${parts[2]}`)
+        }
+      } else {
+        ignoreData = ignoreVariables = true
+      }
+      if (parts.length > 3) {
+        throw new Error(`invalid token after ignore ${parts[2]}: ${parts[3]}`)
       }
     } else {
       for (let i = 1; i < parts.length; i++) {
@@ -101,5 +128,7 @@ export default function getConfigDirectives(
     objectType,
     useReadOnlyTypes,
     addTypename,
+    ignoreData,
+    ignoreVariables,
   }
 }

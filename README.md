@@ -736,6 +736,26 @@ type User = {
 }
 ```
 
+## `ignore [data | variables]`
+
+`ignore data` makes `graphql-typegen` not output a data type.
+`ignore variables` makes `graphql-typegen` not output a variables type.
+`ignore` makes `graphql-typegen` not output either a data or variables type.
+
+This may be set in a comment in your GraphQL operation:
+
+```js
+const query = gql`
+  # @graphql-typegen ignore variables
+  query user($id: Int!) {
+    user(id: $id) {
+      id
+      name
+    }
+  }
+`
+```
+
 # CLI Usage
 
 ```

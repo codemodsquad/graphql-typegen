@@ -11,5 +11,5 @@ export default function getCommentDirectives(
       if (typeof value === 'string') yield value
     }
   }
-  return getConfigDirectives(lines(), cwd)
+  return getConfigDirectives(lines(), { cwd, nodeKind: node.kind })
 }

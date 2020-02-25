@@ -61,6 +61,8 @@ describe(`getCommentDirectives`, function() {
         extract: 'Foob',
         external: undefined,
         addTypename: undefined,
+        ignoreData: undefined,
+        ignoreVariables: undefined,
       })
     })
   })

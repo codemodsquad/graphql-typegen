@@ -22,13 +22,13 @@ export type TypeKind =
 export type IntrospectionArg = {
   name: string
   type: IntrospectionType
-  description: string
+  description?: string | null
 }
 
 export type AnalyzedArg = {
   name: string
   type: AnalyzedType
-  description: string
+  description: string | null | undefined
   config?: ConfigDirectives
 }
 
@@ -36,14 +36,14 @@ export type IntrospectionField = {
   name: string
   args: IntrospectionArg[]
   type: IntrospectionType
-  description: string
+  description?: string | null
 }
 
 export type AnalyzedField = {
   name: string
   args: Record<string, AnalyzedArg>
   type: AnalyzedType
-  description: string
+  description: string | null | undefined
   parent?: AnalyzedType
   config?: ConfigDirectives
 }
@@ -51,26 +51,26 @@ export type AnalyzedField = {
 export type IntrospectionInputField = {
   name: string
   type: IntrospectionType
-  description: string
+  description: string | null
 }
 
 export type AnalyzedInputField = {
   name: string
   type: AnalyzedType
-  description: string
+  description: string | null | undefined
   parent?: AnalyzedType
   config?: ConfigDirectives
 }
 
 export type EnumValue = {
   name: string
-  description: string
+  description?: string | null
 }
 
 export type IntrospectionType = {
   kind: TypeKind
   name: string
-  description: string
+  description?: string | null
   ofType?: IntrospectionType | null
   fields?: IntrospectionField[] | null
   inputFields?: IntrospectionInputField[] | null
@@ -82,7 +82,7 @@ export type IntrospectionType = {
 export type AnalyzedType = {
   kind: TypeKind
   name: string
-  description: string
+  description: string | null | undefined
   ofType?: AnalyzedType | null
   fields?: Record<string, AnalyzedField> | null
   inputFields?: Record<string, AnalyzedInputField> | null
@@ -103,41 +103,42 @@ function analyzeTypes(
 ): Record<string, AnalyzedType> {
   const introspectionTypes: IntrospectionType[] = data.__schema.types as any
   function getDescriptionDirectives(
-    description: string | undefined
+    node:
+      | IntrospectionField
+      | IntrospectionInputField
+      | IntrospectionType
+      | IntrospectionArg
   ): ConfigDirectives {
-    return getConfigDirectives(
-      description ? description.split(/\n/gm) : [],
-      cwd
-    )
+    const description = (node as any).description || ''
+    return getConfigDirectives(description ? description.split(/\n/gm) : [], {
+      cwd,
+    })
   }
 
   function convertIntrospectionArgs(
     args: IntrospectionArg[]
   ): Record<string, AnalyzedArg> {
     const AnalyzedArgs: Record<string, AnalyzedArg> = {}
-    for (const { name, type, description } of args) {
+    for (const arg of args) {
+      const { name, type, description } = arg
       AnalyzedArgs[name] = {
         name,
         type: convertIntrospectionType(type),
         description,
-        config: getDescriptionDirectives(description),
+        config: getDescriptionDirectives(arg),
       }
     }
     return AnalyzedArgs
   }
 
-  function convertIntrospectionField({
-    name,
-    args,
-    type,
-    description,
-  }: IntrospectionField): AnalyzedField {
+  function convertIntrospectionField(field: IntrospectionField): AnalyzedField {
+    const { name, args, type, description } = field
     return {
       name,
       type: convertIntrospectionType(type),
       args: convertIntrospectionArgs(args),
       description,
-      config: getDescriptionDirectives(description),
+      config: getDescriptionDirectives(field),
     }
   }
 
@@ -151,16 +152,15 @@ function analyzeTypes(
     return AnalyzedFields
   }
 
-  function convertIntrospectionInputField({
-    name,
-    type,
-    description,
-  }: IntrospectionInputField): AnalyzedInputField {
+  function convertIntrospectionInputField(
+    field: IntrospectionInputField
+  ): AnalyzedInputField {
+    const { name, type, description } = field
     return {
       name,
       type: convertIntrospectionType(type),
       description,
-      config: getDescriptionDirectives(description),
+      config: getDescriptionDirectives(field),
     }
   }
 
@@ -174,17 +174,18 @@ function analyzeTypes(
     return AnalyzedFields
   }
 
-  function convertIntrospectionType({
-    name,
-    description,
-    kind,
-    ofType,
-    fields,
-    inputFields,
-    enumValues,
-    interfaces,
-    possibleTypes,
-  }: IntrospectionType): AnalyzedType {
+  function convertIntrospectionType(type: IntrospectionType): AnalyzedType {
+    const {
+      name,
+      description,
+      kind,
+      ofType,
+      fields,
+      inputFields,
+      enumValues,
+      interfaces,
+      possibleTypes,
+    } = type
     return {
       name,
       description,
@@ -195,7 +196,7 @@ function analyzeTypes(
         ? convertIntrospectionInputFields(inputFields)
         : null,
       enumValues,
-      config: getDescriptionDirectives(description),
+      config: getDescriptionDirectives(type),
       interfaces: interfaces
         ? interfaces.map(iface => convertIntrospectionType(iface))
         : null,
