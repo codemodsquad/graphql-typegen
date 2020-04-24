@@ -32,7 +32,7 @@ export const options = {
 export const expected = `
 // @flow
 import * as React from 'react'
-import { useMutation, type MutationFunction } from '@apollo/react-hooks'
+import { useMutation } from '@apollo/react-hooks'
 import gql from 'graphql-tag'
 
 const mutation = gql\`
@@ -44,12 +44,6 @@ mutation createReview($episode: Episode!, $review: ReviewInput!) {
   }
 }
 \`
-
-// @graphql-typegen auto-generated
-type CreateReviewMutationFunction = MutationFunction<
-  CreateReviewMutationData,
-  CreateReviewMutationVariables
->
 
 // @graphql-typegen auto-generated
 type CreateReviewMutationVariables = {

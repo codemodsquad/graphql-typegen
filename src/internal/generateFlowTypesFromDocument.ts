@@ -338,7 +338,7 @@ export default function generateFlowTypesFromDocument({
         variables = _variables
         operationTypes.variables = _variables
       }
-      if (data && variables) {
+      if (data && variables && !_config.useFunctionTypeArguments) {
         const mutationFunction = statement([
           `type ${name}Function = ${MutationFunction()}<${data.id.name}${
             variables ? `, ${variables.id.name}` : ''

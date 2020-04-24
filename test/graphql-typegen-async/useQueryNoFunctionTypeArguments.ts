@@ -35,7 +35,7 @@ export const options = {
 export const expected = `
 // @flow
 import * as React from 'react'
-import { useQuery, type QueryRenderProps } from '@apollo/react-hooks'
+import { useQuery, type QueryResult } from '@apollo/react-hooks'
 import gql from 'graphql-tag'
 
 const query = gql\`
@@ -61,7 +61,7 @@ type TestQueryData = {
 }
 
 const Comp = ({id: string}): React.Node => {
-  const {loading, error, data}: QueryRenderProps<TestQueryData, TestQueryVariables> = useQuery(query, {
+  const {loading, error, data}: QueryResult<TestQueryData, TestQueryVariables> = useQuery(query, {
     variables: ({id}: TestQueryVariables),
   })
   return <div />

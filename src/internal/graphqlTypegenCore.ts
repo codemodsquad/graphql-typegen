@@ -46,10 +46,14 @@ function makeFunctionTypeArguments(
   data: TypeAlias,
   variables?: TypeAlias | null | undefined
 ): TypeParameterInstantiation {
-  const params = [j.genericTypeAnnotation(j.identifier(data.id.name), null)]
-  if (variables) {
-    params.push(j.genericTypeAnnotation(j.identifier(variables.id.name), null))
-  }
+  const params: FlowTypeKind[] = [
+    j.genericTypeAnnotation(j.identifier(data.id.name), null),
+  ]
+  params.push(
+    variables
+      ? j.genericTypeAnnotation(j.identifier(variables.id.name), null)
+      : j.objectTypeAnnotation([])
+  )
   return j.typeParameterInstantiation(params)
 }
 
@@ -140,6 +144,22 @@ export default function graphqlTypegenCore(
     )
   }
 
+  const queryResultAnnotation = (
+    data: TypeAlias,
+    variables?: TypeAlias | null | undefined
+  ): TypeAnnotation =>
+    j.typeAnnotation(
+      j.genericTypeAnnotation(
+        j.identifier(addQueryResult()),
+        j.typeParameterInstantiation([
+          j.genericTypeAnnotation(j.identifier(data.id.name), null),
+          variables
+            ? j.genericTypeAnnotation(j.identifier(variables.id.name), null)
+            : j.objectTypeAnnotation([]),
+        ])
+      )
+    )
+
   const mutationResultAnnotation = (data: TypeAlias): TypeAnnotation =>
     j.typeAnnotation(
       j.genericTypeAnnotation(
@@ -150,25 +170,31 @@ export default function graphqlTypegenCore(
       )
     )
 
-  const subscriptionResultAnnotation = (
+  const mutationFunctionAnnotation = (
     data: TypeAlias,
     variables?: TypeAlias | null | undefined
-  ): TypeAnnotation => {
-    const parameters = [
-      j.genericTypeAnnotation(j.identifier(data.id.name), null),
-    ]
-    if (variables) {
-      parameters.push(
-        j.genericTypeAnnotation(j.identifier(variables.id.name), null)
-      )
-    }
-    return j.typeAnnotation(
+  ): TypeAnnotation =>
+    j.typeAnnotation(
       j.genericTypeAnnotation(
-        j.identifier(addSubscriptionResult()),
-        j.typeParameterInstantiation(parameters)
+        j.identifier(addMutationFunction()),
+        j.typeParameterInstantiation([
+          j.genericTypeAnnotation(j.identifier(data.id.name), null),
+          variables
+            ? j.genericTypeAnnotation(j.identifier(variables.id.name), null)
+            : j.objectTypeAnnotation([]),
+        ])
       )
     )
-  }
+
+  const subscriptionResultAnnotation = (data: TypeAlias): TypeAnnotation =>
+    j.typeAnnotation(
+      j.genericTypeAnnotation(
+        j.identifier(addSubscriptionResult()),
+        j.typeParameterInstantiation([
+          j.genericTypeAnnotation(j.identifier(data.id.name), null),
+        ])
+      )
+    )
 
   const findQueryPaths = (root: Collection<any>): ASTPath<any>[] => [
     ...root
@@ -216,6 +242,13 @@ export default function graphqlTypegenCore(
         root,
         statement([`import {type QueryRenderProps} from '${apolloPkg}'`])
       ).QueryRenderProps
+  )
+  const addQueryResult = once(
+    () =>
+      addImports(
+        root,
+        statement([`import {type QueryResult} from '${apolloPkg}'`])
+      ).QueryResult
   )
   const addMutationFunction = once(
     () =>
@@ -434,16 +467,18 @@ export default function graphqlTypegenCore(
           const childFunction = getChildFunction(elementPath)
           if (childFunction) {
             const firstParam = childFunction.get('params', 0)
-            const { mutationFunction } =
+            const { data, variables, mutationFunction } =
               onlyValue(generatedTypes.mutation) || {}
-            if (!mutationFunction) return
+            if (!data) return
             if (firstParam && firstParam.node.type === 'Identifier') {
-              firstParam.node.typeAnnotation = j.typeAnnotation(
-                j.genericTypeAnnotation(
-                  j.identifier(mutationFunction.id.name),
-                  null
-                )
-              )
+              firstParam.node.typeAnnotation = mutationFunction
+                ? j.typeAnnotation(
+                    j.genericTypeAnnotation(
+                      j.identifier(mutationFunction.id.name),
+                      null
+                    )
+                  )
+                : mutationFunctionAnnotation(data, variables)
             }
           }
         })
@@ -477,7 +512,7 @@ export default function graphqlTypegenCore(
               path.node.id.type === 'Identifier' ||
               path.node.id.type === 'ObjectPattern'
             ) {
-              path.node.id.typeAnnotation = queryRenderPropsAnnotation(
+              path.node.id.typeAnnotation = queryResultAnnotation(
                 data,
                 variables
               )
@@ -530,7 +565,7 @@ export default function graphqlTypegenCore(
         .forEach((path: ASTPath<VariableDeclarator>): void => {
           const { data, variables, mutationFunction } =
             onlyValue(generatedTypes.mutation) || {}
-          if (!mutationFunction || !data) return
+          if (!data) return
           const {
             node: { id },
           } = path
@@ -540,6 +575,7 @@ export default function graphqlTypegenCore(
               variables
             )
           } else {
+            if (!mutationFunction) return
             if (id.type !== 'ArrayPattern' && id.type !== 'Identifier') return
             const tupleTypes: FlowTypeKind[] = [
               j.genericTypeAnnotation(
@@ -586,10 +622,7 @@ export default function graphqlTypegenCore(
               path.node.id.type === 'Identifier' ||
               path.node.id.type === 'ObjectPattern'
             ) {
-              path.node.id.typeAnnotation = subscriptionResultAnnotation(
-                data,
-                variables
-              )
+              path.node.id.typeAnnotation = subscriptionResultAnnotation(data)
             }
             if (path.node.init?.type !== 'CallExpression') return
             const options = path.node.init.arguments[1]

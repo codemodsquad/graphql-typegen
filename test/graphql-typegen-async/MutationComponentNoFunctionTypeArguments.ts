@@ -29,6 +29,7 @@ const Comp = ({id: string}): React.Node => (
 
 export const options = {
   addTypename: false,
+  useFunctionTypeArguments: false,
   schemaFile: path.resolve(__dirname, '../../starwars.graphql'),
 }
 
@@ -47,6 +48,12 @@ mutation createReview($episode: Episode!, $review: ReviewInput!) {
   }
 }
 \`
+
+// @graphql-typegen auto-generated
+type CreateReviewMutationFunction = MutationFunction<
+  CreateReviewMutationData,
+  CreateReviewMutationVariables
+>
 
 // @graphql-typegen auto-generated
 type CreateReviewMutationVariables = {
@@ -73,10 +80,7 @@ type CreateReviewMutationData = {
 
 const Comp = ({id: string}): React.Node => (
   <Mutation mutation={mutation}>
-    {(createReview: MutationFunction<
-      CreateReviewMutationData,
-      CreateReviewMutationVariables
-    >): React.Node => (
+    {(createReview: CreateReviewMutationFunction): React.Node => (
       <div />
     )}
   </Mutation>

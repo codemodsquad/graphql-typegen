@@ -66,12 +66,12 @@ type TestSubscriptionData = {
 }
 
 const Comp = ({episode}: {episode: Episode}): React.Node => {
-  const data: SubscriptionResult<
-    TestSubscriptionData,
-    TestSubscriptionVariables
-  > = useSubscription(subscription, {
-    variables: ({ episode }: TestSubscriptionVariables),
-  })
+  const data: SubscriptionResult<TestSubscriptionData> = useSubscription(
+    subscription,
+    {
+      variables: ({ episode }: TestSubscriptionVariables),
+    }
+  )
   return <div />
 }
 `
