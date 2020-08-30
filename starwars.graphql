@@ -22,6 +22,7 @@ type Query {
 # The mutation type, represents all updates we can make to our data
 type Mutation {
   createReview(episode: Episode, review: ReviewInput!): Review
+  testExtractInput(input: TestExtractInput!): Boolean
 }
 # The subscription type, represents all subscriptions we can make to our data
 type Subscription {
@@ -151,3 +152,12 @@ type Starship {
   coordinates: [[Float!]!]
 }
 union SearchResult = Human | Droid | Starship
+
+scalar JSON
+
+input TestExtractInput {
+  foo: String!
+  bar: Int!
+  date: Date
+  json: JSON
+}

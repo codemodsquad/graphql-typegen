@@ -979,8 +979,9 @@ export default function generateFlowTypesFromDocument({
     config: ConfigDirectives
   ): FlowTypeKind {
     config = getCombinedConfig(type.config, config)
+    const fieldConfig = { ...config, extract: undefined }
     return objectTypeAnnotation(
-      map(type.inputFields, field => convertInputField(field, config)),
+      map(type.inputFields, field => convertInputField(field, fieldConfig)),
       config
     )
   }
