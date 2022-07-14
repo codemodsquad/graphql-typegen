@@ -136,7 +136,7 @@
     "@babel/runtime": "^7.15.4",
     "fs-extra": "^8.1.0",
     "graphql": "^15.0.0",
-    "graphql-tag": "^2.10.1",
+    "graphql-tag": "^2.12.6",
     "jscodeshift-add-imports": "^1.0.3",
     "jscodeshift-choose-parser": "^1.0.0",
     "jscodeshift-find-imports": "^1.1.0",
