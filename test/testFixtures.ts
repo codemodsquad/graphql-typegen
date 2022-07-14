@@ -51,7 +51,7 @@ export default function textFixtures({
     )
     it(
       path.basename(fixturePath).replace(/\.js$/, ''),
-      async function(): Promise<void> {
+      async function (): Promise<void> {
         let source = input
         const position = source.indexOf('// position')
         let selectionStart

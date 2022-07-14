@@ -232,7 +232,7 @@ export default function graphqlTypegenCore(
     '@apollo/react-hooks',
     '@apollo/react-components',
     'react-apollo',
-  ].find(pkg =>
+  ].find((pkg) =>
     root.find(j.ImportDeclaration, { source: { value: pkg } }).size()
   )
 
@@ -274,9 +274,7 @@ export default function graphqlTypegenCore(
   const generatedTypesForQuery = new Map()
 
   for (const path of queryPaths) {
-    const declarator = j(path)
-      .closest(j.VariableDeclarator)
-      .nodes()[0]
+    const declarator = j(path).closest(j.VariableDeclarator).nodes()[0]
     const declaratorId = declarator.id
     if (declaratorId.type !== 'Identifier') {
       throw new Error(
@@ -315,7 +313,7 @@ export default function graphqlTypegenCore(
         validationRules
       )
       if (errors.length) {
-        throw new Error(errors.map(error => error.message).join('\n'))
+        throw new Error(errors.map((error) => error.message).join('\n'))
       }
     }
 
@@ -364,10 +362,7 @@ export default function graphqlTypegenCore(
         addedStatements.add(type)
         addedStatements.add(exportDecl)
       } else {
-        j(path)
-          .closest(j.Statement)
-          .at(0)
-          .insertAfter(type)
+        j(path).closest(j.Statement).at(0).insertAfter(type)
         addedStatements.add(type)
       }
     }
@@ -520,7 +515,7 @@ export default function graphqlTypegenCore(
             const options = path.node.init.arguments[1]
             if (variables && options && options.type === 'ObjectExpression') {
               const variablesProp = options.properties.find(
-                p =>
+                (p) =>
                   p.type !== 'SpreadProperty' &&
                   p.type !== 'SpreadElement' &&
                   p.key.type === 'Identifier' &&
@@ -628,7 +623,7 @@ export default function graphqlTypegenCore(
             const options = path.node.init.arguments[1]
             if (variables && options && options.type === 'ObjectExpression') {
               const variablesProp = options.properties.find(
-                p =>
+                (p) =>
                   p.type !== 'SpreadElement' &&
                   p.type !== 'SpreadProperty' &&
                   p.key.type === 'Identifier' &&
@@ -669,14 +664,8 @@ export default function graphqlTypegenCore(
     )
   }
 
-  root
-    .find(j.TypeAlias)
-    .filter(isStale)
-    .remove()
-  root
-    .find(j.ExportNamedDeclaration)
-    .filter(isStale)
-    .remove()
+  root.find(j.TypeAlias).filter(isStale).remove()
+  root.find(j.ExportNamedDeclaration).filter(isStale).remove()
 
   return root.toSource()
 }
@@ -691,7 +680,7 @@ function getChildFunction(elementPath: ASTPath<any>): ASTPath<any> | null {
   const childFunctionContainer = j(elementPath)
     .find(j.JSXExpressionContainer)
     .filter(
-      path =>
+      (path) =>
         path.parentPath && path.parentPath.parentPath.node === elementPath.node
     )
     .at(0)

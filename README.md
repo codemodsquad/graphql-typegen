@@ -633,13 +633,10 @@ const {loading, error, data} = useQuery<QueryData, QueryVariables>(query, {
 Annotates this way:
 
 ```js
-const {
-  loading,
-  error,
-  data,
-}: QueryRenderProps<QueryData, QueryVariables> = useQuery(query, {
-  variables: ({ id }: QueryVariables),
-})
+const { loading, error, data }: QueryRenderProps<QueryData, QueryVariables> =
+  useQuery(query, {
+    variables: ({ id }: QueryVariables),
+  })
 ```
 
 ## `external as <type annotation or import statement>`

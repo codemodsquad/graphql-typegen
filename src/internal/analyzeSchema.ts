@@ -5,7 +5,7 @@ import * as graphql from 'graphql'
 import superagent from 'superagent'
 import getConfigDirectives, { ConfigDirectives } from './getConfigDirectives'
 import { execFileSync } from 'child_process'
-import { getIntrospectionQuery } from 'graphql/utilities/introspectionQuery'
+import { getIntrospectionQuery } from 'graphql'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -198,10 +198,10 @@ function analyzeTypes(
       enumValues,
       config: getDescriptionDirectives(type),
       interfaces: interfaces
-        ? interfaces.map(iface => convertIntrospectionType(iface))
+        ? interfaces.map((iface) => convertIntrospectionType(iface))
         : null,
       possibleTypes: possibleTypes
-        ? possibleTypes.map(type => convertIntrospectionType(type))
+        ? possibleTypes.map((type) => convertIntrospectionType(type))
         : null,
     }
   }
@@ -232,10 +232,10 @@ function analyzeTypes(
     const type = types[name]
     const { fields, inputFields, interfaces, possibleTypes } = type
     if (interfaces) {
-      type.interfaces = interfaces.map(type => resolveType(type))
+      type.interfaces = interfaces.map((type) => resolveType(type))
     }
     if (possibleTypes) {
-      type.possibleTypes = possibleTypes.map(type => resolveType(type))
+      type.possibleTypes = possibleTypes.map((type) => resolveType(type))
     }
     if (fields) {
       for (const name in fields) {
@@ -281,13 +281,9 @@ export async function getIntrospectionData({
   if (schema) introspection = await graphql.execute(schema, introspectionQuery)
   else if (server) {
     introspection = (
-      await superagent
-        .post(server)
-        .type('json')
-        .accept('json')
-        .send({
-          query: introspectionQuery,
-        })
+      await superagent.post(server).type('json').accept('json').send({
+        query: introspectionQuery,
+      })
     ).body
   } else {
     throw new Error('schemaFile or server must be configured')

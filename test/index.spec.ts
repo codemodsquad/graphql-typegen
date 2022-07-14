@@ -10,7 +10,7 @@ for (const dir of fs.readdirSync(__dirname)) {
     dir !== 'fakePackage' &&
     fs.statSync(path.join(__dirname, dir)).isDirectory()
   ) {
-    describe(dir, function() {
+    describe(dir, function () {
       this.timeout(10000)
       testFixtures({
         glob: path.join(__dirname, dir, '*.ts'),

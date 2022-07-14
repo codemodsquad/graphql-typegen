@@ -14,7 +14,7 @@ import readOnlyType from './readOnlyType'
 export default function simplifyIntersection(
   types: FlowTypeKind[]
 ): IntersectionTypeAnnotation {
-  types = flatMap(types, type =>
+  types = flatMap(types, (type) =>
     type.type === 'IntersectionTypeAnnotation' ? type.types : type
   )
 
@@ -33,15 +33,15 @@ export default function simplifyIntersection(
 }
 
 function mergeGroup(group: ObjectInfo[]): FlowTypeKind {
-  const properties: ObjectTypeProperty[] = flatMap(group, g =>
-    g.properties.filter(p => p.type === 'ObjectTypeProperty')
+  const properties: ObjectTypeProperty[] = flatMap(group, (g) =>
+    g.properties.filter((p) => p.type === 'ObjectTypeProperty')
   ) as ObjectTypeProperty[]
-  const rest = flatMap(group, g =>
-    g.properties.filter(p => p.type !== 'ObjectTypeProperty')
+  const rest = flatMap(group, (g) =>
+    g.properties.filter((p) => p.type !== 'ObjectTypeProperty')
   )
   let uniqOther = 0
   const obj = j.objectTypeAnnotation([
-    ...uniqBy(properties, p =>
+    ...uniqBy(properties, (p) =>
       p.key.type === 'Identifier' ? p.key.name : uniqOther++
     ),
     ...rest,

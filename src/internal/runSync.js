@@ -10,12 +10,12 @@ if (/\.ts$/.test(target)) {
 require(target)
   [method](options)
   .then(
-    function(result) {
-      process.stdout.write(JSON.stringify(result), function() {
+    function (result) {
+      process.stdout.write(JSON.stringify(result), function () {
         process.exit(0)
       })
     },
-    function(error) {
+    function (error) {
       console.error(error.stack) // eslint-disable-line no-console
       process.exit(1)
     }

@@ -109,7 +109,10 @@ export function applyConfigDefaults(config: Config): DefaultedConfig {
   }
 
   for (const key in config) {
-    if (config.hasOwnProperty(key) && !result.hasOwnProperty(key)) {
+    if (
+      Object.prototype.hasOwnProperty.call(config, key) &&
+      !Object.prototype.hasOwnProperty.call(result, key)
+    ) {
       throw new Error(`invalid config option: ${key}`)
     }
   }

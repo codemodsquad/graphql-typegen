@@ -111,56 +111,54 @@ export default function generateFlowTypesFromDocument({
     }
   }
 
-  const getExternalType = memoize(
-    (external: External): FlowTypeKind => {
-      if (typeof external === 'string') {
-        return j
-          .withParser('babylon')(
-            `// @flow
+  const getExternalType = memoize((external: External): FlowTypeKind => {
+    if (typeof external === 'string') {
+      return j
+        .withParser('babylon')(
+          `// @flow
         type __T = ${external};`
-          )
-          .find(j.TypeAlias)
-          .nodes()[0].right
-      } else {
-        let parsed
-        try {
-          parsed = statement([external.import])
-        } catch (error) {
-          throw new Error(
-            `invalid import declaration: ${external.import} (${error.message})`
-          )
-        }
-        if (parsed.type !== 'ImportDeclaration') {
-          throw new Error(`invalid import declaration: ${external.import}`)
-        }
-        const decl: ImportDeclaration = parsed
-        const source = decl.source.value
-        if (typeof source === 'string' && /^[./]/.test(source)) {
-          decl.source.value = path.relative(
-            cwd,
-            path.resolve(external.cwd, source)
-          )
-          if (!decl.source.value.startsWith('.'))
-            decl.source.value = `./${decl.source.value}`
-        }
-
-        if (decl.specifiers.length !== 1) {
-          throw new Error(
-            `import declaration must have only one specifier: ${external.import}`
-          )
-        }
-        const identifier = decl.specifiers[0].local?.name
-        if (!identifier) {
-          throw new Error(
-            `unable to determine imported identifier: ${external.import}`
-          )
-        }
-        imports.push(parsed)
-
-        return j.genericTypeAnnotation(j.identifier(identifier), null)
+        )
+        .find(j.TypeAlias)
+        .nodes()[0].right
+    } else {
+      let parsed
+      try {
+        parsed = statement([external.import])
+      } catch (error: any) {
+        throw new Error(
+          `invalid import declaration: ${external.import} (${error.message})`
+        )
       }
+      if (parsed.type !== 'ImportDeclaration') {
+        throw new Error(`invalid import declaration: ${external.import}`)
+      }
+      const decl: ImportDeclaration = parsed
+      const source = decl.source.value
+      if (typeof source === 'string' && /^[./]/.test(source)) {
+        decl.source.value = path.relative(
+          cwd,
+          path.resolve(external.cwd, source)
+        )
+        if (!decl.source.value.startsWith('.'))
+          decl.source.value = `./${decl.source.value}`
+      }
+
+      if (decl.specifiers.length !== 1) {
+        throw new Error(
+          `import declaration must have only one specifier: ${external.import}`
+        )
+      }
+      const identifier = decl.specifiers[0].local?.name
+      if (!identifier) {
+        throw new Error(
+          `unable to determine imported identifier: ${external.import}`
+        )
+      }
+      imports.push(parsed)
+
+      return j.genericTypeAnnotation(j.identifier(identifier), null)
     }
-  )
+  })
 
   const typeAliasCounts: Record<string, number> = {}
 
@@ -214,9 +212,7 @@ export default function generateFlowTypesFromDocument({
   }
 
   const strippedFileName = file
-    ? require('path')
-        .basename(file)
-        .replace(/\..+$/, '')
+    ? path.basename(file).replace(/\..+$/, '')
     : null
 
   const fragments: Map<string, TypeAlias> = new Map()
@@ -354,7 +350,7 @@ export default function generateFlowTypesFromDocument({
     variableDefinitions: readonly graphql.VariableDefinitionNode[],
     config: ConfigDirectives
   ): FlowTypeKind {
-    const props = variableDefinitions.map(def =>
+    const props = variableDefinitions.map((def) =>
       convertVariableDefinition(def, config)
     )
     return objectTypeAnnotation(props, config)
@@ -497,7 +493,7 @@ export default function generateFlowTypesFromDocument({
           return (
             possibleType.name === selectionName ||
             (possibleType.interfaces || []).find(
-              t => t.name === selectionName
+              (t) => t.name === selectionName
             ) != null
           )
         }
@@ -528,7 +524,7 @@ export default function generateFlowTypesFromDocument({
     if (!possibleTypes) {
       throw new Error(`missing possibleTypes for union type: ${type.name}`)
     }
-    const foundTypes = possibleTypes.filter(possibleType =>
+    const foundTypes = possibleTypes.filter((possibleType) =>
       selections.find((selection: graphql.SelectionNode): boolean => {
         let selectionName: string
         switch (selection.kind) {
@@ -549,7 +545,7 @@ export default function generateFlowTypesFromDocument({
       })
     )
     const restTypes = new Set(possibleTypes)
-    foundTypes.forEach(type => restTypes.delete(type))
+    foundTypes.forEach((type) => restTypes.delete(type))
 
     const unions = []
     for (const possibleType of foundTypes) {
@@ -623,7 +619,7 @@ export default function generateFlowTypesFromDocument({
       case 'ObjectTypeAnnotation':
         return (
           type.properties.find(
-            p =>
+            (p) =>
               p.type === 'ObjectTypeProperty' &&
               p.key.type === 'Identifier' &&
               p.key.name === '__typename'
@@ -708,7 +704,7 @@ export default function generateFlowTypesFromDocument({
         j.objectTypeProperty(
           j.identifier('__typename'),
           j.unionTypeAnnotation(
-            restTypes.map(type =>
+            restTypes.map((type) =>
               j.stringLiteralTypeAnnotation(type.name, type.name)
             )
           ),
@@ -761,7 +757,7 @@ export default function generateFlowTypesFromDocument({
             !selection.typeCondition ||
             selection.typeCondition.name.value === type.name ||
             (type.interfaces || []).some(
-              type => selection.typeCondition?.name.value === type.name
+              (type) => selection.typeCondition?.name.value === type.name
             )
           ) {
             intersects.push(
@@ -845,7 +841,7 @@ export default function generateFlowTypesFromDocument({
         `type ${
           innerType.name
         } doesn't have a field named ${fieldName}.  Valid fields are:
-  ${map(fields, f => f.name).join('\n  ')}`
+  ${map(fields, (f) => f.name).join('\n  ')}`
       )
     return fieldDef
   }
@@ -981,7 +977,7 @@ export default function generateFlowTypesFromDocument({
     config = getCombinedConfig(type.config, config)
     const fieldConfig = { ...config, extract: undefined }
     return objectTypeAnnotation(
-      map(type.inputFields, field => convertInputField(field, fieldConfig)),
+      map(type.inputFields, (field) => convertInputField(field, fieldConfig)),
       config
     )
   }
