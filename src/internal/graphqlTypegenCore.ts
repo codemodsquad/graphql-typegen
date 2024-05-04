@@ -644,7 +644,10 @@ export default function graphqlTypegenCore(
           const {
             node: { id },
           } = path
-          if (useFunctionTypeArguments) {
+          if (
+            useFunctionTypeArguments &&
+            path.node.init?.type === 'CallExpression'
+          ) {
             setTypeParameters(
               path.node.init,
               makeFunctionTypeParameterInstantiation(data, variables)
