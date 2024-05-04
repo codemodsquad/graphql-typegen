@@ -10,22 +10,18 @@ import pkgConf from 'pkg-conf'
 import * as prettier from 'prettier'
 
 const prettierOptions = { ...pkgConf.sync('prettier'), parser: 'babel' }
-const normalize = (code: string): string =>
-  prettier
-    .format(code, prettierOptions)
-    .replace(/^\s*(\r\n?|\n)/gm, '')
-    .trim()
-
 export default function textFixtures({
   glob,
   transform,
   transformOptions,
   defaultParser,
+  transformFilename = (f) => f,
 }: {
   glob: string
   transform: Transform
   transformOptions?: Record<string, any>
   defaultParser?: string
+  transformFilename?: (filename: string) => string
 }): void {
   if (!path.isAbsolute(glob)) {
     throw new Error('glob must be absolute')
@@ -47,8 +43,16 @@ export default function textFixtures({
       __dirname,
       fixture.file
         ? path.resolve(path.dirname(fixturePath), fixture.file)
-        : fixturePath
+        : transformFilename(fixturePath)
     )
+    const normalize = (code: string): string =>
+      fixture.normalize == false
+        ? code
+        : prettier
+            .format(code, prettierOptions)
+            .replace(/^\s*(\r\n?|\n)/gm, '')
+            .trim()
+
     it(
       path.basename(fixturePath).replace(/\.js$/, ''),
       async function (): Promise<void> {
