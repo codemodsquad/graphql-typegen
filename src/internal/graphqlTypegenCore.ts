@@ -125,7 +125,7 @@ export default function graphqlTypegenCore(
       ? j.tsTypeAnnotation(typeAnnotation as any)
       : j.typeAnnotation(typeAnnotation as any)
 
-  const genericTypeAnnotation = (
+  const typeReference = (
     id: IdentifierKind | QualifiedTypeIdentifier | TSQualifiedName,
     typeParameters:
       | TypeParameterInstantiation
@@ -183,11 +183,11 @@ export default function graphqlTypegenCore(
     variables?: TypeAlias | TSTypeAliasDeclaration | null | undefined
   ): TypeParameterInstantiation | TSTypeParameterInstantiation {
     const params: (FlowTypeKind | TSTypeKind)[] = [
-      genericTypeAnnotation(j.identifier(data.id.name), null),
+      typeReference(j.identifier(data.id.name), null),
     ]
     params.push(
       variables
-        ? genericTypeAnnotation(j.identifier(variables.id.name), null)
+        ? typeReference(j.identifier(variables.id.name), null)
         : emptyObjectType()
     )
     return typeParameterInstantiation(params)
@@ -197,14 +197,12 @@ export default function graphqlTypegenCore(
     data: TypeAlias | TSTypeAliasDeclaration,
     variables?: TypeAlias | TSTypeAliasDeclaration | null | undefined
   ): TypeAnnotation | TSTypeAnnotation => {
-    const parameters = [genericTypeAnnotation(j.identifier(data.id.name), null)]
+    const parameters = [typeReference(j.identifier(data.id.name), null)]
     if (variables) {
-      parameters.push(
-        genericTypeAnnotation(j.identifier(variables.id.name), null)
-      )
+      parameters.push(typeReference(j.identifier(variables.id.name), null))
     }
     return typeAnnotation(
-      genericTypeAnnotation(
+      typeReference(
         j.identifier(addQueryRenderProps()),
         typeParameterInstantiation(parameters)
       )
@@ -216,12 +214,12 @@ export default function graphqlTypegenCore(
     variables?: TypeAlias | TSTypeAliasDeclaration | null | undefined
   ): TypeAnnotation | TSTypeAnnotation =>
     typeAnnotation(
-      genericTypeAnnotation(
+      typeReference(
         j.identifier(addQueryResult()),
         typeParameterInstantiation([
-          genericTypeAnnotation(j.identifier(data.id.name), null),
+          typeReference(j.identifier(data.id.name), null),
           variables
-            ? genericTypeAnnotation(j.identifier(variables.id.name), null)
+            ? typeReference(j.identifier(variables.id.name), null)
             : emptyObjectType(),
         ])
       )
@@ -231,10 +229,10 @@ export default function graphqlTypegenCore(
     data: TypeAlias | TSTypeAliasDeclaration
   ): TypeAnnotation | TSTypeAnnotation =>
     typeAnnotation(
-      genericTypeAnnotation(
+      typeReference(
         j.identifier(addMutationResult()),
         typeParameterInstantiation([
-          genericTypeAnnotation(j.identifier(data.id.name), null),
+          typeReference(j.identifier(data.id.name), null),
         ])
       )
     )
@@ -244,12 +242,12 @@ export default function graphqlTypegenCore(
     variables?: TypeAlias | TSTypeAliasDeclaration | null | undefined
   ): TypeAnnotation | TSTypeAnnotation =>
     typeAnnotation(
-      genericTypeAnnotation(
+      typeReference(
         j.identifier(addMutationFunction()),
         typeParameterInstantiation([
-          genericTypeAnnotation(j.identifier(data.id.name), null),
+          typeReference(j.identifier(data.id.name), null),
           variables
-            ? genericTypeAnnotation(j.identifier(variables.id.name), null)
+            ? typeReference(j.identifier(variables.id.name), null)
             : emptyObjectType(),
         ])
       )
@@ -259,10 +257,10 @@ export default function graphqlTypegenCore(
     data: TypeAlias | TSTypeAliasDeclaration
   ): TypeAnnotation | TSTypeAnnotation =>
     typeAnnotation(
-      genericTypeAnnotation(
+      typeReference(
         j.identifier(addSubscriptionResult()),
         typeParameterInstantiation([
-          genericTypeAnnotation(j.identifier(data.id.name), null),
+          typeReference(j.identifier(data.id.name), null),
         ])
       )
     )
@@ -485,7 +483,7 @@ export default function graphqlTypegenCore(
                 typeCast(
                   variablesValue.value,
                   typeAnnotation(
-                    genericTypeAnnotation(j.identifier(variables.id.name), null)
+                    typeReference(j.identifier(variables.id.name), null)
                   )
                 )
               )
@@ -547,10 +545,7 @@ export default function graphqlTypegenCore(
             if (firstParam && firstParam.node.type === 'Identifier') {
               firstParam.node.typeAnnotation = mutationFunction
                 ? typeAnnotation(
-                    genericTypeAnnotation(
-                      j.identifier(mutationFunction.id.name),
-                      null
-                    )
+                    typeReference(j.identifier(mutationFunction.id.name), null)
                   )
                 : mutationFunctionAnnotation(data, variables)
             }
@@ -609,7 +604,7 @@ export default function graphqlTypegenCore(
                 variablesProp.value = typeCast(
                   variablesProp.value as ExpressionKind,
                   typeAnnotation(
-                    genericTypeAnnotation(j.identifier(variables.id.name), null)
+                    typeReference(j.identifier(variables.id.name), null)
                   )
                 )
               }
@@ -649,10 +644,7 @@ export default function graphqlTypegenCore(
             if (!mutationFunction) return
             if (id.type !== 'ArrayPattern' && id.type !== 'Identifier') return
             const tupleTypes: (FlowTypeKind | TSTypeKind)[] = [
-              genericTypeAnnotation(
-                j.identifier(mutationFunction.id.name),
-                null
-              ),
+              typeReference(j.identifier(mutationFunction.id.name), null),
             ]
             if (data && id.type === 'ArrayPattern' && id.elements.length > 1) {
               const resultType = mutationResultAnnotation(data).typeAnnotation
@@ -724,7 +716,7 @@ export default function graphqlTypegenCore(
                 variablesProp.value = typeCast(
                   variablesProp.value as ExpressionKind,
                   typeAnnotation(
-                    genericTypeAnnotation(j.identifier(variables.id.name), null)
+                    typeReference(j.identifier(variables.id.name), null)
                   )
                 )
               }
