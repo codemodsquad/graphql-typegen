@@ -21,6 +21,7 @@ import j, {
   TSTypeParameterInstantiation,
   TSQualifiedName,
   TSTypeAliasDeclaration,
+  CallExpression,
 } from 'jscodeshift'
 import findImports from 'jscodeshift-find-imports'
 import addImports from 'jscodeshift-add-imports'
@@ -178,7 +179,7 @@ export default function graphqlTypegenCore(
     throw new Error('invalid typeAnnotation')
   }
 
-  function makeFunctionTypeArguments(
+  function makeFunctionTypeParameterInstantiation(
     data: TypeAlias | TSTypeAliasDeclaration,
     variables?: TypeAlias | TSTypeAliasDeclaration | null | undefined
   ): TypeParameterInstantiation | TSTypeParameterInstantiation {
@@ -553,6 +554,14 @@ export default function graphqlTypegenCore(
         })
     }
 
+    const setTypeParameters = (
+      node: CallExpression,
+      params: TypeParameterInstantiation | TSTypeParameterInstantiation
+    ) => {
+      if (isTS) (node as any).typeParameters = params
+      else (node as any).typeArguments = params
+    }
+
     //////////////////////////////////////////////////
     // Add types to useQuery hooks
 
@@ -572,9 +581,9 @@ export default function graphqlTypegenCore(
           const { data, variables } = onlyValue(generatedTypes.query) || {}
           if (!data || path.node.init?.type !== 'CallExpression') return
           if (useFunctionTypeArguments) {
-            ;(path.node.init as any).typeArguments = makeFunctionTypeArguments(
-              data,
-              variables
+            setTypeParameters(
+              path.node.init,
+              makeFunctionTypeParameterInstantiation(data, variables)
             )
           } else {
             if (
@@ -636,9 +645,9 @@ export default function graphqlTypegenCore(
             node: { id },
           } = path
           if (useFunctionTypeArguments) {
-            ;(path.node.init as any).typeArguments = makeFunctionTypeArguments(
-              data,
-              variables
+            setTypeParameters(
+              path.node.init,
+              makeFunctionTypeParameterInstantiation(data, variables)
             )
           } else {
             if (!mutationFunction) return
@@ -684,11 +693,11 @@ export default function graphqlTypegenCore(
         .forEach((path: ASTPath<VariableDeclarator>): void => {
           const { data, variables } =
             onlyValue(generatedTypes.subscription) || {}
-          if (!data) return
+          if (!data || path.node.init?.type !== 'CallExpression') return
           if (useFunctionTypeArguments) {
-            ;(path.node.init as any).typeArguments = makeFunctionTypeArguments(
-              data,
-              variables
+            setTypeParameters(
+              path.node.init,
+              makeFunctionTypeParameterInstantiation(data, variables)
             )
           } else {
             if (
