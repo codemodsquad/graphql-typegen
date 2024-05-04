@@ -73,6 +73,9 @@ export default function graphqlTypegenCore(
   if (file.endsWith('.ts')) j = j.withParser('ts')
   else if (file.endsWith('.tsx')) j = j.withParser('tsx')
 
+  const emptyObjectType = () =>
+    isTS ? j.tsTypeLiteral([]) : j.objectTypeAnnotation([])
+
   const root = j(code)
   const { statement } = j.template
 
@@ -185,7 +188,7 @@ export default function graphqlTypegenCore(
     params.push(
       variables
         ? genericTypeAnnotation(j.identifier(variables.id.name), null)
-        : j.objectTypeAnnotation([])
+        : emptyObjectType()
     )
     return typeParameterInstantiation(params)
   }
@@ -219,7 +222,7 @@ export default function graphqlTypegenCore(
           genericTypeAnnotation(j.identifier(data.id.name), null),
           variables
             ? genericTypeAnnotation(j.identifier(variables.id.name), null)
-            : j.objectTypeAnnotation([]),
+            : emptyObjectType(),
         ])
       )
     )
@@ -247,7 +250,7 @@ export default function graphqlTypegenCore(
           genericTypeAnnotation(j.identifier(data.id.name), null),
           variables
             ? genericTypeAnnotation(j.identifier(variables.id.name), null)
-            : j.objectTypeAnnotation([]),
+            : emptyObjectType(),
         ])
       )
     )
