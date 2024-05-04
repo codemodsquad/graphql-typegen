@@ -64,9 +64,6 @@ devDependencies:
   '@jcoreio/toolchain-esnext':
     specifier: ^4.2.0
     version: 4.2.0
-  '@jcoreio/toolchain-flow':
-    specifier: ^4.2.0
-    version: 4.2.0
   '@jcoreio/toolchain-mocha':
     specifier: ^4.2.0
     version: 4.2.0
@@ -145,9 +142,6 @@ devDependencies:
   eslint-plugin-react:
     specifier: ^7.32.2
     version: 7.34.1(eslint@8.57.0)
-  flow-bin:
-    specifier: ^0.161.0
-    version: 0.161.0
   mocha:
     specifier: ^10.2.0
     version: 10.4.0
@@ -1640,6 +1634,7 @@ packages:
       '@babel/core': 7.24.5
       '@babel/helper-plugin-utils': 7.24.5
       '@babel/plugin-syntax-flow': 7.18.6(@babel/core@7.24.5)
+    dev: false
 
   /@babel/plugin-transform-for-of@7.16.0(@babel/core@7.16.0):
     resolution: {integrity: sha512-5QKUw2kO+GVmKr2wMYSATCTTnHyscl6sxFRAY+rvN7h7WB0lcG0o4NoV6ZQU32OZGVsYUsfLGgPQpDFdkfjlJQ==}
@@ -2509,6 +2504,7 @@ packages:
       '@babel/helper-plugin-utils': 7.24.5
       '@babel/helper-validator-option': 7.23.5
       '@babel/plugin-transform-flow-strip-types': 7.18.6(@babel/core@7.24.5)
+    dev: false
 
   /@babel/preset-modules@0.1.5(@babel/core@7.16.0):
     resolution: {integrity: sha512-A57th6YRG7oR3cq/yt/Y84MvGgE0eJG2F1JLhKuyG+jFxEgrd/HAMJatiFtmOiZurz+0DkrvbheCLaV5f2JfjA==}
@@ -2793,22 +2789,6 @@ packages:
       fs-extra: 10.0.0
       resolve: 1.22.8
       resolve-bin: 1.0.1
-    transitivePeerDependencies:
-      - supports-color
-    dev: true
-
-  /@jcoreio/toolchain-flow@4.2.0:
-    resolution: {integrity: sha512-+3AdCd8A1TGVtKOW2CjU8ilS68irVBj1Qq1lSHSObMFfAqhO4VMxaULISk/ZBK21zKWCrabJ1oEyMNdc34dZ8g==}
-    dependencies:
-      '@babel/core': 7.24.5
-      '@babel/plugin-syntax-flow': 7.18.6(@babel/core@7.24.5)
-      '@babel/plugin-transform-react-jsx': 7.23.4(@babel/core@7.24.5)
-      '@babel/preset-flow': 7.18.6(@babel/core@7.24.5)
-      '@jcoreio/toolchain': 4.2.0
-      '@jcoreio/toolchain-esnext': 4.2.0
-      dedent-js: 1.0.1
-      eslint: 8.57.0
-      eslint-plugin-flowtype: 8.0.3(@babel/plugin-syntax-flow@7.18.6)(@babel/plugin-transform-react-jsx@7.23.4)(eslint@8.57.0)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -4787,11 +4767,6 @@ packages:
 
   /flatted@3.2.4:
     resolution: {integrity: sha512-8/sOawo8tJ4QOBX8YlQBMxL8+RLZfxMQOif9o0KUKTNTjMYElWPE0r/m5VNFxTRd0NSw8qSy8dajrwX4RYI1Hw==}
-    dev: true
-
-  /flow-bin@0.161.0:
-    resolution: {integrity: sha512-5BKQi+sjOXz67Kbc1teiBwd5e0Da6suW7S5oUCm9VclnzSZ3nlfNZUdrkvgJ5S4w5KDBDToEL7rREpn8rKF1zg==}
-    engines: {node: '>=0.10.0'}
     dev: true
 
   /flow-parser@0.182.0:
