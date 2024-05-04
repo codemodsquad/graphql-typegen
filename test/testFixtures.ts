@@ -3,13 +3,13 @@
 
 import { it } from 'mocha'
 import { expect } from 'chai'
+// @ts-expect-error no type defs
 import requireGlob from 'require-glob'
 import jscodeshift, { Transform } from 'jscodeshift'
 import * as path from 'path'
 import pkgConf from 'pkg-conf'
 import * as prettier from 'prettier'
 
-const prettierOptions = { ...pkgConf.sync('prettier'), parser: 'babel' }
 export default function textFixtures({
   glob,
   transform,
@@ -45,6 +45,11 @@ export default function textFixtures({
         ? path.resolve(path.dirname(fixturePath), fixture.file)
         : transformFilename(fixturePath)
     )
+
+    const prettierOptions = {
+      ...pkgConf.sync('prettier'),
+      parser: 'babel',
+    } as const
     const normalize = (code: string): string =>
       fixture.normalize == false
         ? code
@@ -84,7 +89,7 @@ export default function textFixtures({
         }
 
         const stats: Record<string, number> = {}
-        const report = []
+        const report: string[] = []
         const parser = fixture.parser || defaultParser
         const j = parser ? jscodeshift.withParser(parser) : jscodeshift
         const doTransform = ():

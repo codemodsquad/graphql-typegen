@@ -1,5 +1,4 @@
 import { TSTypeKind } from 'ast-types/gen/kinds'
-import { isNullableTSType, isNullishTSType, nonNullable } from './tsNullables'
 
 export default function isReadOnlyTSType(type: TSTypeKind): boolean {
   switch (type.type) {

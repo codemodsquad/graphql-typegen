@@ -1,7 +1,7 @@
 import * as graphql from 'graphql'
 import { describe, it } from 'mocha'
 import { expect } from 'chai'
-import getCommentDirectives from './getCommentDirectives'
+import getCommentDirectives from '../src/internal/getCommentDirectives'
 
 function fragment([
   text,

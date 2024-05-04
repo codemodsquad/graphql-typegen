@@ -176,8 +176,8 @@ export default function graphqlTypegenCore(
   }
 
   function makeFunctionTypeArguments(
-    data: TypeAlias,
-    variables?: TypeAlias | null | undefined
+    data: TypeAlias | TSTypeAliasDeclaration,
+    variables?: TypeAlias | TSTypeAliasDeclaration | null | undefined
   ): TypeParameterInstantiation | TSTypeParameterInstantiation {
     const params: (FlowTypeKind | TSTypeKind)[] = [
       genericTypeAnnotation(j.identifier(data.id.name), null),
@@ -209,8 +209,8 @@ export default function graphqlTypegenCore(
   }
 
   const queryResultAnnotation = (
-    data: TypeAlias,
-    variables?: TypeAlias | null | undefined
+    data: TypeAlias | TSTypeAliasDeclaration,
+    variables?: TypeAlias | TSTypeAliasDeclaration | null | undefined
   ): TypeAnnotation | TSTypeAnnotation =>
     typeAnnotation(
       genericTypeAnnotation(
@@ -225,7 +225,7 @@ export default function graphqlTypegenCore(
     )
 
   const mutationResultAnnotation = (
-    data: TypeAlias
+    data: TypeAlias | TSTypeAliasDeclaration
   ): TypeAnnotation | TSTypeAnnotation =>
     typeAnnotation(
       genericTypeAnnotation(
@@ -237,8 +237,8 @@ export default function graphqlTypegenCore(
     )
 
   const mutationFunctionAnnotation = (
-    data: TypeAlias,
-    variables?: TypeAlias | null | undefined
+    data: TypeAlias | TSTypeAliasDeclaration,
+    variables?: TypeAlias | TSTypeAliasDeclaration | null | undefined
   ): TypeAnnotation | TSTypeAnnotation =>
     typeAnnotation(
       genericTypeAnnotation(
@@ -253,7 +253,7 @@ export default function graphqlTypegenCore(
     )
 
   const subscriptionResultAnnotation = (
-    data: TypeAlias
+    data: TypeAlias | TSTypeAliasDeclaration
   ): TypeAnnotation | TSTypeAnnotation =>
     typeAnnotation(
       genericTypeAnnotation(
@@ -398,14 +398,14 @@ export default function graphqlTypegenCore(
           config,
           j,
         })
-      : generateFlowTypesFromDocument({
+      : (generateFlowTypesFromDocument({
           file,
           document,
           types: schema,
           getMutationFunction: addMutationFunction,
           config,
           j,
-        })
+        }) as any as ReturnType<typeof generateTSTypesFromDocument>)
     generatedTypesForQuery.set(declaratorId.name, generatedTypes)
 
     if (imports.length) addImports(root, imports)

@@ -3,7 +3,9 @@
   "include": ["./src"],
   "exclude": ["node_modules", "./src/**/*.spec.ts", "./test"],
   "compilerOptions": {
-    "declaration": true /* Generates corresponding '.d.ts' file. */,
-    "noEmit": false
+    "outDir": "./dist",
+    "declaration": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true
   }
 }
