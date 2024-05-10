@@ -22,13 +22,14 @@ import j, {
   TSQualifiedName,
   TSTypeAliasDeclaration,
   CallExpression,
+  ImportDeclaration,
 } from 'jscodeshift'
 import findImports from 'jscodeshift-find-imports'
-import addImports from 'jscodeshift-add-imports'
+import _addImports from 'jscodeshift-add-imports'
 import generateFlowTypesFromDocument from './generateFlowTypesFromDocument'
 import generateTSTypesFromDocument from './generateTSTypesFromDocument'
 import * as graphql from 'graphql'
-import once from 'lodash/once'
+import { once, omit } from 'lodash'
 import {
   ExpressionKind,
   FlowTypeKind,
@@ -779,4 +780,35 @@ function getChildFunction(elementPath: ASTPath<any>): ASTPath<any> | null {
     return null
   }
   return null
+}
+
+function addImports(
+  root: Collection<any>,
+  imports: ImportDeclaration | ImportDeclaration[]
+): Record<string, string> {
+  return _addImports(
+    root,
+    (Array.isArray(imports) ? imports : [imports]).flatMap((statement) => {
+      const specifiers = statement.specifiers?.filter((spec) => {
+        if (
+          spec.local?.name &&
+          (statement.importKind === 'type' ||
+            (spec?.type === 'ImportSpecifier' &&
+              (spec as any).importKind === 'type'))
+        ) {
+          const otherDecl = {
+            ...statement,
+            importKind: 'value',
+            specifiers: [omit(spec, 'importKind')],
+          }
+          if (findImports(root, otherDecl)[spec.local?.name]) {
+            return false
+          }
+        }
+        return true
+      })
+
+      return specifiers?.length ? [{ ...statement, specifiers }] : []
+    })
+  )
 }

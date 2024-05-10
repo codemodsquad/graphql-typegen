@@ -36,5 +36,27 @@
       "}",
       ""
     ]
+  },
+  "testcase": {
+    "prefix": "testcase",
+    "body": [
+      "import * as path from 'path'",
+      "",
+      "export const input = `",
+      "import gql from 'graphql-tag'",
+      "",
+      "const query = gql\\`",
+      "\\`",
+      "`",
+      "",
+      "export const options = {",
+      "  addTypename: true,",
+      "  schemaFile: path.resolve(__dirname, '../../../starwars.graphql'),",
+      "}",
+      "",
+      "export const expected = `",
+      "`",
+      ""
+    ]
   }
 }
