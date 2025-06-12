@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-
 import { describe } from 'mocha'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -14,9 +12,11 @@ for (const dir of fs.readdirSync(__dirname)) {
       this.timeout(10000)
       testFixtures({
         glob: path.join(__dirname, dir, 'flow', '*.ts'),
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         transform: require(`../src/${dir}`),
         transformFilename: (file) => file.replace(/\.ts/, '.js'),
         defaultParser: 'babylon',
+        prettierParser: 'flow',
       })
     })
   }

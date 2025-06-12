@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { it } from 'mocha'
 import { expect } from 'chai'
 // @ts-expect-error no type defs
@@ -15,12 +12,14 @@ export default function textFixtures({
   transform,
   transformOptions,
   defaultParser,
+  prettierParser,
   transformFilename = (f) => f,
 }: {
   glob: string
   transform: Transform
   transformOptions?: Record<string, any>
   defaultParser?: string
+  prettierParser: string
   transformFilename?: (filename: string) => string
 }): void {
   if (!path.isAbsolute(glob)) {
@@ -41,22 +40,21 @@ export default function textFixtures({
     const { input, expected } = fixture
     const file = path.resolve(
       __dirname,
-      fixture.file
-        ? path.resolve(path.dirname(fixturePath), fixture.file)
-        : transformFilename(fixturePath)
+      fixture.file ?
+        path.resolve(path.dirname(fixturePath), fixture.file)
+      : transformFilename(fixturePath)
     )
 
     const prettierOptions = {
       ...pkgConf.sync('prettier'),
-      parser: 'babel',
+      parser: prettierParser,
     } as const
-    const normalize = (code: string): string =>
-      fixture.normalize == false
-        ? code
-        : prettier
-            .format(code, prettierOptions)
-            .replace(/^\s*(\r\n?|\n)/gm, '')
-            .trim()
+    const normalize = async (code: string) =>
+      fixture.normalize == false ?
+        code
+      : (await prettier.format(code, prettierOptions))
+          .replace(/^\s*(\r\n?|\n)/gm, '')
+          .trim()
 
     it(
       path.basename(fixturePath).replace(/\.js$/, ''),
@@ -120,7 +118,8 @@ export default function textFixtures({
         } else {
           const result = await doTransform()
           if (!result) expect(result).to.equal(fixture.expected)
-          else expect(normalize(result)).to.equal(normalize(expected))
+          else
+            expect(await normalize(result)).to.equal(await normalize(expected))
           if (fixture.stats) expect(stats).to.deep.equal(fixture.stats)
           if (fixture.report) expect(report).to.deep.equal(fixture.report)
         }

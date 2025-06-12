@@ -10,9 +10,9 @@ export function isNullableTSType(type: TSTypeKind): boolean {
 }
 
 export function nullableTSType(type: TSTypeKind): TSTypeKind {
-  return isNullableTSType(type)
-    ? type
-    : j.tsUnionType([type, j.tsNullKeyword()])
+  return isNullableTSType(type) ? type : (
+      j.tsUnionType([type, j.tsNullKeyword()])
+    )
 }
 
 export function isNullishTSType(type: TSTypeKind): boolean {
@@ -40,16 +40,16 @@ export function nullishTSType(type: TSTypeKind): TSTypeKind {
 
 export function nonNullable(type: TSTypeKind): TSTypeKind {
   const types =
-    type.type === 'TSUnionType'
-      ? type.types
-      : [type]
-          .filter(
-            (t) =>
-              t.type !== 'TSNullKeyword' &&
-              t.type !== 'TSUndefinedKeyword' &&
-              t.type !== 'TSVoidKeyword'
-          )
-          .map((t) => nonNullable(t))
+    type.type === 'TSUnionType' ?
+      type.types
+    : [type]
+        .filter(
+          (t) =>
+            t.type !== 'TSNullKeyword' &&
+            t.type !== 'TSUndefinedKeyword' &&
+            t.type !== 'TSVoidKeyword'
+        )
+        .map((t) => nonNullable(t))
   return types.length === 1 ? types[0] : j.tsUnionType(types)
 }
 

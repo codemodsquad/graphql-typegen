@@ -14,7 +14,7 @@ module.exports = function graphqlTypegen(
   const packageConf = pkgConf.sync('graphql-typegen', {
     cwd: path.dirname(file),
   })
-  if (packageConf?.schemaFile) {
+  if (packageConf.schemaFile) {
     const packageDir = path.dirname(pkgConf.filepath(packageConf) as any)
     packageConf.schemaFile = path.resolve(
       packageDir,

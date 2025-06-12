@@ -35,7 +35,7 @@ export default function simplifyIntersection(
 function mergeGroup(group: ObjectInfo[]): FlowTypeKind {
   const properties: ObjectTypeProperty[] = flatMap(group, (g) =>
     g.properties.filter((p) => p.type === 'ObjectTypeProperty')
-  ) as ObjectTypeProperty[]
+  )
   const rest = flatMap(group, (g) =>
     g.properties.filter((p) => p.type !== 'ObjectTypeProperty')
   )
@@ -63,10 +63,9 @@ function getObjectType(type: FlowTypeKind): ObjectInfo | null {
     readOnly: boolean,
     type: ObjectTypeAnnotation
   ): ObjectInfo => {
-    const objectType = type.exact
-      ? 'exact'
-      : type.inexact
-      ? 'inexact'
+    const objectType =
+      type.exact ? 'exact'
+      : type.inexact ? 'inexact'
       : 'ambiguous'
     return {
       group: `${readOnly ? 'readOnly' : 'mutable'}-${objectType}`,

@@ -10,7 +10,7 @@ import {
 import isReadOnlyTSType from './isReadOnlyTSType'
 
 export default function readOnlyTSType(type: TSTypeKind): TSTypeKind {
-  if (isReadOnlyTSType(type)) return type as TSTypeKind
+  if (isReadOnlyTSType(type)) return type
   if (isNullishTSType(type))
     return nullishTSType(readOnlyTSType(nonNullable(type)))
   if (isNullableTSType(type))

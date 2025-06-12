@@ -79,6 +79,7 @@ export default function graphqlTypegenCore(
     isTS ? j.tsTypeLiteral([]) : j.objectTypeAnnotation([])
 
   const root = j(code)
+  // eslint-disable-next-line @typescript-eslint/unbound-method
   const { statement } = j.template
 
   function precomputeExpressionInGQLTemplateLiteral(
@@ -123,9 +124,9 @@ export default function graphqlTypegenCore(
   }
 
   const typeAnnotation = (typeAnnotation: FlowTypeKind | TSTypeKind) =>
-    isTS
-      ? j.tsTypeAnnotation(typeAnnotation as any)
-      : j.typeAnnotation(typeAnnotation as any)
+    isTS ?
+      j.tsTypeAnnotation(typeAnnotation as any)
+    : j.typeAnnotation(typeAnnotation as any)
 
   const typeReference = (
     id: IdentifierKind | QualifiedTypeIdentifier | TSQualifiedName,
@@ -153,9 +154,9 @@ export default function graphqlTypegenCore(
   const typeParameterInstantiation = (
     params: FlowTypeKind[] | TSTypeKind[] | (FlowTypeKind | TSTypeKind)[]
   ) =>
-    isTS
-      ? j.tsTypeParameterInstantiation(params as any)
-      : j.typeParameterInstantiation(params as any)
+    isTS ?
+      j.tsTypeParameterInstantiation(params as any)
+    : j.typeParameterInstantiation(params as any)
 
   function typeCast(
     node: ExpressionKind,
@@ -182,22 +183,22 @@ export default function graphqlTypegenCore(
 
   function makeFunctionTypeParameterInstantiation(
     data: TypeAlias | TSTypeAliasDeclaration,
-    variables?: TypeAlias | TSTypeAliasDeclaration | null | undefined
+    variables?: TypeAlias | TSTypeAliasDeclaration | null
   ): TypeParameterInstantiation | TSTypeParameterInstantiation {
     const params: (FlowTypeKind | TSTypeKind)[] = [
       typeReference(j.identifier(data.id.name), null),
     ]
     params.push(
-      variables
-        ? typeReference(j.identifier(variables.id.name), null)
-        : emptyObjectType()
+      variables ?
+        typeReference(j.identifier(variables.id.name), null)
+      : emptyObjectType()
     )
     return typeParameterInstantiation(params)
   }
 
   const queryRenderPropsAnnotation = (
     data: TypeAlias | TSTypeAliasDeclaration,
-    variables?: TypeAlias | TSTypeAliasDeclaration | null | undefined
+    variables?: TypeAlias | TSTypeAliasDeclaration | null
   ): TypeAnnotation | TSTypeAnnotation => {
     const parameters = [typeReference(j.identifier(data.id.name), null)]
     if (variables) {
@@ -213,16 +214,16 @@ export default function graphqlTypegenCore(
 
   const queryResultAnnotation = (
     data: TypeAlias | TSTypeAliasDeclaration,
-    variables?: TypeAlias | TSTypeAliasDeclaration | null | undefined
+    variables?: TypeAlias | TSTypeAliasDeclaration | null
   ): TypeAnnotation | TSTypeAnnotation =>
     typeAnnotation(
       typeReference(
         j.identifier(addQueryResult()),
         typeParameterInstantiation([
           typeReference(j.identifier(data.id.name), null),
-          variables
-            ? typeReference(j.identifier(variables.id.name), null)
-            : emptyObjectType(),
+          variables ?
+            typeReference(j.identifier(variables.id.name), null)
+          : emptyObjectType(),
         ])
       )
     )
@@ -241,16 +242,16 @@ export default function graphqlTypegenCore(
 
   const mutationFunctionAnnotation = (
     data: TypeAlias | TSTypeAliasDeclaration,
-    variables?: TypeAlias | TSTypeAliasDeclaration | null | undefined
+    variables?: TypeAlias | TSTypeAliasDeclaration | null
   ): TypeAnnotation | TSTypeAnnotation =>
     typeAnnotation(
       typeReference(
         j.identifier(addMutationFunction()),
         typeParameterInstantiation([
           typeReference(j.identifier(data.id.name), null),
-          variables
-            ? typeReference(j.identifier(variables.id.name), null)
-            : emptyObjectType(),
+          variables ?
+            typeReference(j.identifier(variables.id.name), null)
+          : emptyObjectType(),
         ])
       )
     )
@@ -392,8 +393,9 @@ export default function graphqlTypegenCore(
       statements: types,
       generatedTypes,
       imports,
-    } = isTS
-      ? generateTSTypesFromDocument({
+    } =
+      isTS ?
+        generateTSTypesFromDocument({
           file,
           document,
           types: schema,
@@ -419,8 +421,9 @@ export default function graphqlTypegenCore(
       const {
         id: { name },
       } = type
-      const existing = isTS
-        ? root.find(j.TSTypeAliasDeclaration, { id: { name } }).at(0)
+      const existing =
+        isTS ?
+          root.find(j.TSTypeAliasDeclaration, { id: { name } }).at(0)
         : root.find(j.TypeAlias, { id: { name } }).at(0)
       const parent = j(path).closest(j.ExportNamedDeclaration)
       if (existing.size() > 0) {
@@ -545,8 +548,9 @@ export default function graphqlTypegenCore(
               onlyValue(generatedTypes.mutation) || {}
             if (!data) return
             if (firstParam && firstParam.node.type === 'Identifier') {
-              firstParam.node.typeAnnotation = mutationFunction
-                ? typeAnnotation(
+              firstParam.node.typeAnnotation =
+                mutationFunction ?
+                  typeAnnotation(
                     typeReference(j.identifier(mutationFunction.id.name), null)
                   )
                 : mutationFunctionAnnotation(data, variables)
@@ -671,9 +675,9 @@ export default function graphqlTypegenCore(
             }
             // https://github.com/benjamn/ast-types/issues/372
             ;(id as any).typeAnnotation = typeAnnotation(
-              isTS
-                ? j.tsTupleType(tupleTypes as any)
-                : j.tupleTypeAnnotation(tupleTypes as any)
+              isTS ?
+                j.tsTupleType(tupleTypes as any)
+              : j.tupleTypeAnnotation(tupleTypes as any)
             )
           }
         })

@@ -29,7 +29,7 @@ export default function simplifyTSIntersection(
 function mergeGroup(group: ObjectInfo[]): TSTypeKind {
   const properties: TSPropertySignature[] = flatMap(group, (g) =>
     g.properties.filter((p) => p.type === 'TSPropertySignature')
-  ) as TSPropertySignature[]
+  )
   const rest = flatMap(group, (g) =>
     g.properties.filter((p) => p.type !== 'TSPropertySignature')
   )
@@ -52,7 +52,7 @@ type ObjectInfo = {
 function getObjectType(type: TSTypeKind): ObjectInfo | null {
   const makeInfo = (readOnly: boolean, type: TSTypeLiteral): ObjectInfo => {
     return {
-      group: `${readOnly ? 'readOnly' : 'mutable'}`,
+      group: readOnly ? 'readOnly' : 'mutable',
       readOnly,
       properties: type.members.filter(
         (m): m is TSPropertySignature => m.type === 'TSPropertySignature'

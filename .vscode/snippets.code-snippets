@@ -34,8 +34,8 @@
       "",
       "  return root.toSource()",
       "}",
-      ""
-    ]
+      "",
+    ],
   },
   "testcase": {
     "prefix": "testcase",
@@ -56,7 +56,7 @@
       "",
       "export const expected = `",
       "`",
-      ""
-    ]
-  }
+      "",
+    ],
+  },
 }

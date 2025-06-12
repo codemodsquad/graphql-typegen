@@ -21,4 +21,4 @@ export const options = {
   schemaFile: path.resolve(__dirname, '../../../starwars.graphql'),
 }
 
-export const expectedRejection = `invalid import declaration: import blah (Unexpected token (1:11))`
+export const expectedRejection = `invalid import declaration: import blah (Unexpected token, expected "from" (1:11))`

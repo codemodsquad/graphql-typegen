@@ -1,5 +1,4 @@
 #! /usr/bin/env babel-node --extensions .js,.ts
-/* eslint-disable @typescript-eslint/no-use-before-define */
 
 import * as graphql from 'graphql'
 import superagent from 'superagent'
@@ -100,7 +99,7 @@ function analyzeTypes(
   }: {
     cwd: string
   }
-): Record<string, AnalyzedType> {
+): { [K in string]?: AnalyzedType } {
   const introspectionTypes: IntrospectionType[] = data.__schema.types as any
   function getDescriptionDirectives(
     node:
@@ -192,21 +191,22 @@ function analyzeTypes(
       kind,
       ofType: ofType ? convertIntrospectionType(ofType) : null,
       fields: fields ? convertIntrospectionFields(fields) : null,
-      inputFields: inputFields
-        ? convertIntrospectionInputFields(inputFields)
-        : null,
+      inputFields:
+        inputFields ? convertIntrospectionInputFields(inputFields) : null,
       enumValues,
       config: getDescriptionDirectives(type),
-      interfaces: interfaces
-        ? interfaces.map((iface) => convertIntrospectionType(iface))
+      interfaces:
+        interfaces ?
+          interfaces.map((iface) => convertIntrospectionType(iface))
         : null,
-      possibleTypes: possibleTypes
-        ? possibleTypes.map((type) => convertIntrospectionType(type))
+      possibleTypes:
+        possibleTypes ?
+          possibleTypes.map((type) => convertIntrospectionType(type))
         : null,
     }
   }
 
-  const types: Record<string, AnalyzedType> = {}
+  const types: { [K in string]?: AnalyzedType } = {}
 
   for (const introspectionType of introspectionTypes) {
     const { name } = introspectionType
@@ -230,6 +230,7 @@ function analyzeTypes(
   }
   for (const name in types) {
     const type = types[name]
+    if (!type) continue
     const { fields, inputFields, interfaces, possibleTypes } = type
     if (interfaces) {
       type.interfaces = interfaces.map((type) => resolveType(type))
@@ -259,7 +260,7 @@ function analyzeTypes(
   return types
 }
 
-export type AnalyzedSchema = Record<string, AnalyzedType>
+export type AnalyzedSchema = { [K in string]?: AnalyzedType }
 export type AnalyzeResult = {
   analyzed: AnalyzedSchema
   schema: graphql.GraphQLSchema

@@ -16,7 +16,7 @@ require(target)
       })
     },
     function (error) {
-      console.error(error.stack) // eslint-disable-line no-console
+      console.error(error.stack)
       process.exit(1)
     }
   )

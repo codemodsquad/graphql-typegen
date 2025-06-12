@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-use-before-define */
-
 import * as path from 'path'
 import * as graphql from 'graphql'
 import map from 'lodash/map'
@@ -55,7 +53,7 @@ export default function generateFlowTypesFromDocument({
 }: {
   document: graphql.DocumentNode
   file: string
-  types: Record<string, AnalyzedType>
+  types: { [K in string]?: AnalyzedType }
   config: Config
   getMutationFunction: () => string
   j: JSCodeshift
@@ -65,6 +63,7 @@ export default function generateFlowTypesFromDocument({
   imports: ImportDeclaration[]
 } {
   const cwd = path.dirname(file)
+  // eslint-disable-next-line @typescript-eslint/unbound-method
   const { statement } = j.template
   const config = applyConfigDefaults(_config)
 
@@ -166,7 +165,7 @@ export default function generateFlowTypesFromDocument({
     let count = typeAliasCounts[name]
     if (count != null) {
       typeAliasCounts[name] = ++count
-      name += count
+      name += String(count)
     } else {
       typeAliasCounts[name] = 0
     }
@@ -211,9 +210,8 @@ export default function generateFlowTypesFromDocument({
     )
   }
 
-  const strippedFileName = file
-    ? path.basename(file).replace(/\..+$/, '')
-    : null
+  const strippedFileName =
+    file ? path.basename(file).replace(/\..+$/, '') : null
 
   const fragments: Map<string, TypeAlias> = new Map()
   const statements: TypeAlias[] = []
@@ -249,7 +247,7 @@ export default function generateFlowTypesFromDocument({
       config
     )
     if (typeof extract !== 'string') {
-      extract = `${upperFirst(def.name.value)}`
+      extract = upperFirst(def.name.value)
     }
     const alias = addTypeAlias(extract, type)
     generatedTypes.fragment[def.name.value] = alias
@@ -280,17 +278,17 @@ export default function generateFlowTypesFromDocument({
       name += upperFirst(operation)
     }
     if (operation === 'query' || operation === 'subscription') {
-      const operationTypes: GeneratedQueryType = def.name
-        ? (generatedTypes[operation][def.name.value] = {})
-        : {}
+      const operationTypes: GeneratedQueryType =
+        def.name ? (generatedTypes[operation][def.name.value] = {}) : {}
       if (!ignoreData) {
+        const opTypeName = upperFirst(operation)
+        const type = types[opTypeName]
+        if (!type) {
+          throw new Error(`missing ${opTypeName} type`)
+        }
         operationTypes.data = addTypeAlias(
           `${name}Data`,
-          convertSelectionSet(
-            selectionSet,
-            types[upperFirst(operation)],
-            config
-          )
+          convertSelectionSet(selectionSet, type, config)
         )
       }
       if (
@@ -304,20 +302,20 @@ export default function generateFlowTypesFromDocument({
         )
       }
     } else if (operation === 'mutation') {
-      const operationTypes: GeneratedMutationType = def.name
-        ? (generatedTypes[operation][def.name.value] = {})
-        : {}
+      const operationTypes: GeneratedMutationType =
+        def.name ? (generatedTypes[operation][def.name.value] = {}) : {}
 
       let data, variables
 
       if (!ignoreData) {
+        const opTypeName = upperFirst(operation)
+        const type = types[opTypeName]
+        if (!type) {
+          throw new Error(`missing ${opTypeName} type`)
+        }
         const _data = addTypeAlias(
           `${name}Data`,
-          convertSelectionSet(
-            selectionSet,
-            types[upperFirst(operation)],
-            config
-          )
+          convertSelectionSet(selectionSet, type, config)
         )
         data = _data
         operationTypes.data = _data
@@ -716,8 +714,8 @@ export default function generateFlowTypesFromDocument({
       intersects.unshift(objectTypeAnnotation(props, config))
     }
 
-    return intersects.length === 1
-      ? intersects[0]
+    return intersects.length === 1 ?
+        intersects[0]
       : simplifyIntersection(intersects)
   }
 
@@ -781,8 +779,8 @@ export default function generateFlowTypesFromDocument({
       intersects.unshift(objectTypeAnnotation(props, config))
     }
 
-    return intersects.length === 1
-      ? intersects[0]
+    return intersects.length === 1 ?
+        intersects[0]
       : simplifyIntersection(intersects)
   }
 
